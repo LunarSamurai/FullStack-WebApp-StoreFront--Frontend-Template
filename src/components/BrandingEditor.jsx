@@ -33,7 +33,7 @@ function ColorPicker({ label, value, onChange }) {
         />
         <input
           type="text"
-          value={value}
+          value={value || ''}
           onChange={(e) => onChange(e.target.value)}
           className="input-luxe flex-1 font-mono text-sm"
           placeholder="#000000"
@@ -50,7 +50,7 @@ function ColorPicker({ label, value, onChange }) {
           >
             <input
               type="color"
-              value={value}
+              value={value || '#C4A052'}
               onChange={(e) => onChange(e.target.value)}
               className="w-full h-32 rounded-lg cursor-pointer mb-3"
             />
@@ -84,7 +84,7 @@ function Slider({ label, value, onChange, min = 0, max = 100, step = 1, suffix =
         min={min}
         max={max}
         step={step}
-        value={value}
+        value={value || 0}
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-full h-2 bg-cream-200 rounded-lg appearance-none cursor-pointer accent-gold-500"
       />
@@ -152,23 +152,23 @@ function LivePreview({ branding, previewMode }) {
       {/* Mini Navbar Preview */}
       <div 
         className="flex items-center justify-between px-4 py-3 border-b"
-        style={{ backgroundColor: branding.colors.white, borderColor: branding.colors.backgroundAlt }}
+        style={{ backgroundColor: branding.colors?.white || '#FFFFFF', borderColor: branding.colors?.backgroundAlt || '#F5F0E8' }}
       >
         <div className="flex items-center gap-2">
           <div 
             className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold"
-            style={{ backgroundColor: branding.colors.primary, color: branding.colors.secondary }}
+            style={{ backgroundColor: branding.colors?.primary || '#C4A052', color: branding.colors?.secondary || '#3D2E1E' }}
           >
-            {branding.logoText}
+            {branding.logoText || 'L'}
           </div>
           <span 
             className="font-semibold"
-            style={{ color: branding.colors.secondary, fontFamily: branding.fonts.display }}
+            style={{ color: branding.colors?.secondary || '#3D2E1E' }}
           >
-            {branding.brandName}
+            {branding.brandName || 'LUXE'}
           </span>
         </div>
-        <div className="flex gap-4 text-sm" style={{ color: branding.colors.textLight }}>
+        <div className="flex gap-4 text-sm" style={{ color: branding.colors?.textLight || '#7A6A5A' }}>
           <span>Home</span>
           <span>Shop</span>
           <span>About</span>
@@ -178,60 +178,60 @@ function LivePreview({ branding, previewMode }) {
       {/* Mini Hero Preview */}
       <div 
         className="p-6 text-center"
-        style={{ backgroundColor: branding.colors.background }}
+        style={{ backgroundColor: branding.colors?.background || '#FAF7F2' }}
       >
         <h1 
           className="text-2xl font-bold mb-2"
-          style={{ color: branding.colors.secondary, fontFamily: branding.fonts.display }}
+          style={{ color: branding.colors?.secondary || '#3D2E1E' }}
         >
-          {branding.content.heroTitle}
+          {branding.content?.heroTitle || 'Discover Timeless Elegance'}
         </h1>
         <p 
           className="text-sm mb-4 max-w-xs mx-auto"
-          style={{ color: branding.colors.textLight }}
+          style={{ color: branding.colors?.textLight || '#7A6A5A' }}
         >
-          {branding.content.heroSubtitle}
+          {branding.content?.heroSubtitle || 'Curated luxury goods crafted with exceptional quality.'}
         </p>
         <button
           className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           style={{ 
-            backgroundColor: branding.colors.primary, 
-            color: branding.colors.secondary 
+            backgroundColor: branding.colors?.primary || '#C4A052', 
+            color: branding.colors?.secondary || '#3D2E1E' 
           }}
         >
-          {branding.content.heroButtonText}
+          {branding.content?.heroButtonText || 'Shop Now'}
         </button>
       </div>
       
       {/* Mini Product Card Preview */}
-      <div className="p-4" style={{ backgroundColor: branding.colors.backgroundAlt }}>
+      <div className="p-4" style={{ backgroundColor: branding.colors?.backgroundAlt || '#F5F0E8' }}>
         <div 
           className="rounded-xl overflow-hidden shadow-sm"
-          style={{ backgroundColor: branding.colors.white }}
+          style={{ backgroundColor: branding.colors?.white || '#FFFFFF' }}
         >
           <div 
-            className="h-24 flex items-center justify-center"
-            style={{ backgroundColor: branding.colors.background }}
+            className="h-24 flex items-center justify-center relative"
+            style={{ backgroundColor: branding.colors?.background || '#FAF7F2' }}
           >
-            {branding.features.showFeaturedBadge && (
+            {branding.features?.showFeaturedBadge && (
               <span 
                 className="px-2 py-1 text-xs rounded-full absolute top-2 left-2"
-                style={{ backgroundColor: branding.colors.primary, color: branding.colors.secondary }}
+                style={{ backgroundColor: branding.colors?.primary || '#C4A052', color: branding.colors?.secondary || '#3D2E1E' }}
               >
                 Featured
               </span>
             )}
-            <span style={{ color: branding.colors.textLight }}>Product Image</span>
+            <span style={{ color: branding.colors?.textLight || '#7A6A5A' }}>Product Image</span>
           </div>
           <div className="p-3">
-            <p className="text-xs" style={{ color: branding.colors.primary }}>CATEGORY</p>
+            <p className="text-xs" style={{ color: branding.colors?.primary || '#C4A052' }}>CATEGORY</p>
             <h3 
               className="font-semibold text-sm"
-              style={{ color: branding.colors.secondary, fontFamily: branding.fonts.display }}
+              style={{ color: branding.colors?.secondary || '#3D2E1E' }}
             >
               Product Name
             </h3>
-            <p className="text-sm font-bold mt-1" style={{ color: branding.colors.secondary }}>$99.00</p>
+            <p className="text-sm font-bold mt-1" style={{ color: branding.colors?.secondary || '#3D2E1E' }}>$99.00</p>
           </div>
         </div>
       </div>
@@ -239,10 +239,10 @@ function LivePreview({ branding, previewMode }) {
       {/* Mini Footer Preview */}
       <div 
         className="p-4 text-center text-xs"
-        style={{ backgroundColor: branding.colors.secondary, color: branding.colors.backgroundAlt }}
+        style={{ backgroundColor: branding.colors?.secondary || '#3D2E1E', color: branding.colors?.backgroundAlt || '#F5F0E8' }}
       >
-        <p>{branding.content.footerText}</p>
-        <p className="mt-1 opacity-60">© 2024 {branding.brandName}</p>
+        <p>{branding.content?.footerText || 'Curated luxury goods for the discerning customer.'}</p>
+        <p className="mt-1 opacity-60">© 2024 {branding.brandName || 'LUXE'}</p>
       </div>
     </div>
   );
@@ -345,7 +345,7 @@ export default function BrandingEditor() {
                 <label className="block text-sm font-medium text-coffee-700 mb-2">Brand Name</label>
                 <input
                   type="text"
-                  value={branding.brandName}
+                  value={branding.brandName || ''}
                   onChange={(e) => updateBranding('brandName', e.target.value)}
                   className="input-luxe"
                   placeholder="Your Brand Name"
@@ -355,7 +355,7 @@ export default function BrandingEditor() {
                 <label className="block text-sm font-medium text-coffee-700 mb-2">Logo Text (1-2 characters)</label>
                 <input
                   type="text"
-                  value={branding.logoText}
+                  value={branding.logoText || ''}
                   onChange={(e) => updateBranding('logoText', e.target.value.slice(0, 2))}
                   className="input-luxe w-24 text-center text-2xl font-bold"
                   maxLength={2}
@@ -365,7 +365,7 @@ export default function BrandingEditor() {
                 <label className="block text-sm font-medium text-coffee-700 mb-2">Tagline</label>
                 <input
                   type="text"
-                  value={branding.tagline}
+                  value={branding.tagline || ''}
                   onChange={(e) => updateBranding('tagline', e.target.value)}
                   className="input-luxe"
                   placeholder="Your brand tagline"
@@ -379,42 +379,42 @@ export default function BrandingEditor() {
             <div className="grid grid-cols-2 gap-4">
               <ColorPicker
                 label="Primary Color"
-                value={branding.colors.primary}
+                value={branding.colors?.primary}
                 onChange={(v) => updateBranding('colors.primary', v)}
               />
               <ColorPicker
                 label="Primary Hover"
-                value={branding.colors.primaryHover}
+                value={branding.colors?.primaryHover}
                 onChange={(v) => updateBranding('colors.primaryHover', v)}
               />
               <ColorPicker
                 label="Secondary Color"
-                value={branding.colors.secondary}
+                value={branding.colors?.secondary}
                 onChange={(v) => updateBranding('colors.secondary', v)}
               />
               <ColorPicker
                 label="Secondary Light"
-                value={branding.colors.secondaryLight}
+                value={branding.colors?.secondaryLight}
                 onChange={(v) => updateBranding('colors.secondaryLight', v)}
               />
               <ColorPicker
                 label="Background"
-                value={branding.colors.background}
+                value={branding.colors?.background}
                 onChange={(v) => updateBranding('colors.background', v)}
               />
               <ColorPicker
                 label="Background Alt"
-                value={branding.colors.backgroundAlt}
+                value={branding.colors?.backgroundAlt}
                 onChange={(v) => updateBranding('colors.backgroundAlt', v)}
               />
               <ColorPicker
                 label="Text Color"
-                value={branding.colors.text}
+                value={branding.colors?.text}
                 onChange={(v) => updateBranding('colors.text', v)}
               />
               <ColorPicker
                 label="Text Light"
-                value={branding.colors.textLight}
+                value={branding.colors?.textLight}
                 onChange={(v) => updateBranding('colors.textLight', v)}
               />
             </div>
@@ -426,7 +426,7 @@ export default function BrandingEditor() {
               <div>
                 <label className="block text-sm font-medium text-coffee-700 mb-2">Display Font</label>
                 <select
-                  value={branding.fonts.display}
+                  value={branding.fonts?.display || 'Playfair Display'}
                   onChange={(e) => updateBranding('fonts.display', e.target.value)}
                   className="input-luxe"
                 >
@@ -443,7 +443,7 @@ export default function BrandingEditor() {
               <div>
                 <label className="block text-sm font-medium text-coffee-700 mb-2">Body Font</label>
                 <select
-                  value={branding.fonts.body}
+                  value={branding.fonts?.body || 'Inter'}
                   onChange={(e) => updateBranding('fonts.body', e.target.value)}
                   className="input-luxe"
                 >
@@ -466,7 +466,7 @@ export default function BrandingEditor() {
                 <label className="block text-sm font-medium text-coffee-700 mb-2">Hero Title</label>
                 <input
                   type="text"
-                  value={branding.content.heroTitle}
+                  value={branding.content?.heroTitle || ''}
                   onChange={(e) => updateBranding('content.heroTitle', e.target.value)}
                   className="input-luxe"
                 />
@@ -474,7 +474,7 @@ export default function BrandingEditor() {
               <div>
                 <label className="block text-sm font-medium text-coffee-700 mb-2">Hero Subtitle</label>
                 <textarea
-                  value={branding.content.heroSubtitle}
+                  value={branding.content?.heroSubtitle || ''}
                   onChange={(e) => updateBranding('content.heroSubtitle', e.target.value)}
                   className="input-luxe resize-none"
                   rows={2}
@@ -484,7 +484,7 @@ export default function BrandingEditor() {
                 <label className="block text-sm font-medium text-coffee-700 mb-2">Hero Button Text</label>
                 <input
                   type="text"
-                  value={branding.content.heroButtonText}
+                  value={branding.content?.heroButtonText || ''}
                   onChange={(e) => updateBranding('content.heroButtonText', e.target.value)}
                   className="input-luxe"
                 />
@@ -493,7 +493,7 @@ export default function BrandingEditor() {
                 <label className="block text-sm font-medium text-coffee-700 mb-2">Shop Page Title</label>
                 <input
                   type="text"
-                  value={branding.content.shopTitle}
+                  value={branding.content?.shopTitle || ''}
                   onChange={(e) => updateBranding('content.shopTitle', e.target.value)}
                   className="input-luxe"
                 />
@@ -502,7 +502,7 @@ export default function BrandingEditor() {
                 <label className="block text-sm font-medium text-coffee-700 mb-2">Footer Text</label>
                 <input
                   type="text"
-                  value={branding.content.footerText}
+                  value={branding.content?.footerText || ''}
                   onChange={(e) => updateBranding('content.footerText', e.target.value)}
                   className="input-luxe"
                 />
@@ -516,18 +516,18 @@ export default function BrandingEditor() {
               <Toggle
                 label="Show Featured Badge"
                 description="Display 'Featured' badge on featured products"
-                value={branding.features.showFeaturedBadge}
+                value={branding.features?.showFeaturedBadge}
                 onChange={(v) => updateBranding('features.showFeaturedBadge', v)}
               />
               <Toggle
                 label="Show Tax in Cart"
                 description="Display tax calculation in cart"
-                value={branding.features.showTaxInCart}
+                value={branding.features?.showTaxInCart}
                 onChange={(v) => updateBranding('features.showTaxInCart', v)}
               />
               <Slider
                 label="Free Shipping Threshold"
-                value={branding.features.freeShippingThreshold}
+                value={branding.features?.freeShippingThreshold || 100}
                 onChange={(v) => updateBranding('features.freeShippingThreshold', v)}
                 min={0}
                 max={500}
@@ -536,7 +536,7 @@ export default function BrandingEditor() {
               />
               <Slider
                 label="Tax Rate"
-                value={Math.round(branding.features.taxRate * 100)}
+                value={Math.round((branding.features?.taxRate || 0.08) * 100)}
                 onChange={(v) => updateBranding('features.taxRate', v / 100)}
                 min={0}
                 max={20}
@@ -553,7 +553,7 @@ export default function BrandingEditor() {
                 <Instagram size={20} className="text-coffee-400" />
                 <input
                   type="text"
-                  value={branding.social.instagram}
+                  value={branding.social?.instagram || ''}
                   onChange={(e) => updateBranding('social.instagram', e.target.value)}
                   className="input-luxe flex-1"
                   placeholder="Instagram URL"
@@ -563,7 +563,7 @@ export default function BrandingEditor() {
                 <Twitter size={20} className="text-coffee-400" />
                 <input
                   type="text"
-                  value={branding.social.twitter}
+                  value={branding.social?.twitter || ''}
                   onChange={(e) => updateBranding('social.twitter', e.target.value)}
                   className="input-luxe flex-1"
                   placeholder="Twitter/X URL"
@@ -573,7 +573,7 @@ export default function BrandingEditor() {
                 <Facebook size={20} className="text-coffee-400" />
                 <input
                   type="text"
-                  value={branding.social.facebook}
+                  value={branding.social?.facebook || ''}
                   onChange={(e) => updateBranding('social.facebook', e.target.value)}
                   className="input-luxe flex-1"
                   placeholder="Facebook URL"
@@ -589,7 +589,7 @@ export default function BrandingEditor() {
                 <Mail size={20} className="text-coffee-400" />
                 <input
                   type="email"
-                  value={branding.contact.email}
+                  value={branding.contact?.email || ''}
                   onChange={(e) => updateBranding('contact.email', e.target.value)}
                   className="input-luxe flex-1"
                   placeholder="contact@example.com"
@@ -599,7 +599,7 @@ export default function BrandingEditor() {
                 <Phone size={20} className="text-coffee-400" />
                 <input
                   type="tel"
-                  value={branding.contact.phone}
+                  value={branding.contact?.phone || ''}
                   onChange={(e) => updateBranding('contact.phone', e.target.value)}
                   className="input-luxe flex-1"
                   placeholder="+1 (555) 123-4567"
@@ -609,7 +609,7 @@ export default function BrandingEditor() {
                 <MapPin size={20} className="text-coffee-400" />
                 <input
                   type="text"
-                  value={branding.contact.address}
+                  value={branding.contact?.address || ''}
                   onChange={(e) => updateBranding('contact.address', e.target.value)}
                   className="input-luxe flex-1"
                   placeholder="123 Main St, City, State"

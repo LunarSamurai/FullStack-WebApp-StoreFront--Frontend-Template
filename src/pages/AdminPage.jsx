@@ -1,968 +1,795 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit2, Trash2, Save, X, Upload, Package, DollarSign, Tag, FileText, Star, Check, AlertCircle, Video, Users, Shield, UserPlus, QrCode, Loader2, Palette } from 'lucide-react';
+import { 
+  Package, Plus, Edit2, Trash2, Upload, X, Save, Loader2, Play,
+  Users, Shield, ShieldCheck, AlertTriangle, Palette, TrendingUp,
+  Image as ImageIcon, Check, Star, Tag
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductsContext';
 import { supabase } from '../config/supabase';
-import QRCode from 'qrcode';
+import SalesDashboard from '../components/SalesDashboard';
 import BrandingEditor from '../components/BrandingEditor';
 
-const initialForm = { name: '', description: '', price: '', category: '', image_url: '', video_url: '', in_stock: true, featured: false };
-
 export default function AdminPage() {
-  const { user, isAdmin, loading: authLoading, enrollMFA, verifyMFAEnrollment, verifyEscalationMFA, getEscalationFactor, getMFAFactors } = useAuth();
-  const { products, loading: productsLoading, addProduct, updateProduct, deleteProduct, error } = useProducts();
+  const { user, isAdmin, verifyEscalationMFA, enrollMFA, getEscalationFactor } = useAuth();
+  const { products, addProduct, updateProduct, deleteProduct, refreshProducts } = useProducts();
   
-  // Product state
+  const [activeTab, setActiveTab] = useState('products');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [formData, setFormData] = useState(initialForm);
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState('');
-  const [videoFile, setVideoFile] = useState(null);
-  const [videoPreview, setVideoPreview] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   
   // Admin management state
-  const [activeTab, setActiveTab] = useState('products');
   const [admins, setAdmins] = useState([]);
-  const [loadingAdmins, setLoadingAdmins] = useState(false);
   const [newAdminEmail, setNewAdminEmail] = useState('');
-  const [addingAdmin, setAddingAdmin] = useState(false);
-  const [adminError, setAdminError] = useState(null);
-  const [deleteAdminConfirm, setDeleteAdminConfirm] = useState(null);
-  
-  // Escalation MFA state
-  const [showEscalationSetup, setShowEscalationSetup] = useState(false);
-  const [escalationQrCode, setEscalationQrCode] = useState(null);
-  const [escalationSecret, setEscalationSecret] = useState(null);
-  const [escalationFactorId, setEscalationFactorId] = useState(null);
+  const [adminLoading, setAdminLoading] = useState(false);
   const [escalationCode, setEscalationCode] = useState('');
+  const [pendingAction, setPendingAction] = useState(null);
+  const [showEscalationModal, setShowEscalationModal] = useState(false);
   const [hasEscalationMFA, setHasEscalationMFA] = useState(false);
-  const [showEscalationVerify, setShowEscalationVerify] = useState(false);
-  const [pendingAdminAction, setPendingAdminAction] = useState(null);
-  
-  const imageInputRef = useRef(null);
+  const [escalationSetupData, setEscalationSetupData] = useState(null);
+  const [showEscalationSetup, setShowEscalationSetup] = useState(false);
+
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    price: '',
+    category: '',
+    imageUrl: '',
+    videoUrl: '',
+    featured: false,
+    inStock: true,
+  });
+
+  const fileInputRef = useRef(null);
   const videoInputRef = useRef(null);
 
-  // Load admins and check escalation MFA
+  // Calculate stats
+  const stats = {
+    totalProducts: products.length,
+    inStock: products.filter(p => p.inStock !== false).length,
+    featured: products.filter(p => p.featured).length,
+    categories: [...new Set(products.map(p => p.category).filter(Boolean))].length,
+  };
+
   useEffect(() => {
-    if (isAdmin) {
-      loadAdmins();
+    if (isAdmin && activeTab === 'admins') {
+      fetchAdmins();
       checkEscalationMFA();
     }
-  }, [isAdmin]);
+  }, [isAdmin, activeTab]);
 
-  const loadAdmins = async () => {
-    setLoadingAdmins(true);
+  const checkEscalationMFA = async () => {
     try {
-      const { data, error } = await supabase
-        .from('admins')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
+      const factor = await getEscalationFactor();
+      setHasEscalationMFA(!!factor);
+    } catch (err) {
+      setHasEscalationMFA(false);
+    }
+  };
+
+  const fetchAdmins = async () => {
+    try {
+      const { data, error } = await supabase.from('admins').select('*');
       if (error) throw error;
       setAdmins(data || []);
     } catch (err) {
-      console.error('Error loading admins:', err);
-      setAdminError(err.message);
-    } finally {
-      setLoadingAdmins(false);
+      console.error('Error fetching admins:', err);
     }
   };
 
-  const checkEscalationMFA = async () => {
-    const factor = await getEscalationFactor();
-    setHasEscalationMFA(!!factor);
-    if (factor) {
-      setEscalationFactorId(factor.id);
-    }
-  };
-
-  const setupEscalationMFA = async () => {
+  const handleSetupEscalationMFA = async () => {
     try {
-      const data = await enrollMFA('Escalation MFA');
-      setEscalationFactorId(data.id);
-      setEscalationSecret(data.totp.secret);
-      const qrUrl = await QRCode.toDataURL(data.totp.uri);
-      setEscalationQrCode(qrUrl);
+      setAdminLoading(true);
+      const { data, error } = await enrollMFA('Admin Escalation');
+      if (error) throw error;
+      setEscalationSetupData(data);
       setShowEscalationSetup(true);
     } catch (err) {
-      setAdminError(err.message);
+      console.error('Error setting up escalation MFA:', err);
+      alert('Failed to setup escalation MFA');
+    } finally {
+      setAdminLoading(false);
     }
   };
 
-  const verifyEscalationSetup = async () => {
+  const handleVerifyEscalationSetup = async () => {
     try {
-      await verifyMFAEnrollment(escalationFactorId, escalationCode);
+      setAdminLoading(true);
+      const { data, error } = await supabase.auth.mfa.challengeAndVerify({
+        factorId: escalationSetupData.id,
+        code: escalationCode,
+      });
+      
+      if (error) throw error;
+      
       setHasEscalationMFA(true);
       setShowEscalationSetup(false);
+      setEscalationSetupData(null);
       setEscalationCode('');
-      setEscalationQrCode(null);
-      setEscalationSecret(null);
+      alert('Escalation MFA setup complete!');
     } catch (err) {
-      setAdminError(err.message);
+      console.error('Error verifying escalation MFA:', err);
+      alert('Invalid code. Please try again.');
+    } finally {
+      setAdminLoading(false);
     }
   };
 
   const handleAddAdmin = async () => {
-    if (!newAdminEmail.trim()) return;
+    if (!newAdminEmail) return;
     
     if (!hasEscalationMFA) {
-      setAdminError('You must set up Escalation MFA before adding admins');
+      alert('Please set up escalation MFA first');
       return;
     }
     
-    // Show escalation verification
-    setPendingAdminAction({ type: 'add', email: newAdminEmail.toLowerCase().trim() });
-    setShowEscalationVerify(true);
+    setPendingAction({ type: 'add', email: newAdminEmail });
+    setShowEscalationModal(true);
   };
 
-  const handleDeleteAdmin = (email) => {
-    if (!hasEscalationMFA) {
-      setAdminError('You must set up Escalation MFA before removing admins');
+  const handleRemoveAdmin = async (adminId, adminEmail) => {
+    if (adminEmail === user?.email) {
+      alert('You cannot remove yourself as admin');
       return;
     }
     
-    setPendingAdminAction({ type: 'delete', email });
-    setShowEscalationVerify(true);
+    if (!hasEscalationMFA) {
+      alert('Please set up escalation MFA first');
+      return;
+    }
+    
+    setPendingAction({ type: 'remove', id: adminId, email: adminEmail });
+    setShowEscalationModal(true);
   };
 
   const executeAdminAction = async () => {
-    if (!pendingAdminAction) return;
-    
-    setAddingAdmin(true);
-    setAdminError(null);
-
     try {
-      // Verify escalation MFA
-      const result = await verifyEscalationMFA(escalationCode, escalationFactorId);
-      if (!result.verified) {
-        setAdminError('Invalid escalation code');
-        setAddingAdmin(false);
+      setAdminLoading(true);
+      
+      const verified = await verifyEscalationMFA(escalationCode);
+      if (!verified) {
+        alert('Invalid escalation code');
         return;
       }
-
-      if (pendingAdminAction.type === 'add') {
-        // Check if admin already exists
-        const { data: existing } = await supabase
-          .from('admins')
-          .select('email')
-          .eq('email', pendingAdminAction.email)
-          .single();
-
+      
+      if (pendingAction.type === 'add') {
+        const existing = admins.find(a => a.email === pendingAction.email);
         if (existing) {
-          setAdminError('This email is already an admin');
-          setAddingAdmin(false);
+          alert('This email is already an admin');
           return;
         }
-
-        // Add new admin
-        const { error } = await supabase
-          .from('admins')
-          .insert([{ email: pendingAdminAction.email }]);
-
+        
+        const { error } = await supabase.from('admins').insert({
+          email: pendingAction.email,
+          added_by: user.email,
+        });
         if (error) throw error;
         setNewAdminEmail('');
-      } else if (pendingAdminAction.type === 'delete') {
-        // Prevent deleting yourself
-        if (pendingAdminAction.email === user.email.toLowerCase()) {
-          setAdminError('You cannot remove yourself as admin');
-          setAddingAdmin(false);
-          return;
-        }
-
-        const { error } = await supabase
-          .from('admins')
-          .delete()
-          .eq('email', pendingAdminAction.email);
-
+      } else if (pendingAction.type === 'remove') {
+        const { error } = await supabase.from('admins').delete().eq('id', pendingAction.id);
         if (error) throw error;
       }
-
-      await loadAdmins();
-      setShowEscalationVerify(false);
+      
+      await fetchAdmins();
+      setShowEscalationModal(false);
       setEscalationCode('');
-      setPendingAdminAction(null);
+      setPendingAction(null);
     } catch (err) {
-      setAdminError(err.message);
+      console.error('Admin action error:', err);
+      alert('Failed to complete action');
     } finally {
-      setAddingAdmin(false);
+      setAdminLoading(false);
     }
   };
 
-  if (authLoading) return <div className="min-h-screen flex items-center justify-center"><div className="spinner" /></div>;
-  if (!user || !isAdmin) return <Navigate to="/" replace />;
-
-  const openModal = (product = null) => {
-    if (product) {
-      setEditingProduct(product);
-      setFormData({
-        name: product.name || '',
-        description: product.description || '',
-        price: product.price?.toString() || '',
-        category: product.category || '',
-        image_url: product.image_url || '',
-        video_url: product.video_url || '',
-        in_stock: product.in_stock !== false,
-        featured: product.featured === true
-      });
-      setImagePreview(product.image_url || '');
-      setVideoPreview(product.video_url || '');
-    } else {
-      setEditingProduct(null);
-      setFormData(initialForm);
-      setImagePreview('');
-      setVideoPreview('');
-    }
-    setImageFile(null);
-    setVideoFile(null);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingProduct(null);
-    setFormData(initialForm);
-    setImageFile(null);
-    setVideoFile(null);
-    setImagePreview('');
-    setVideoPreview('');
-  };
-
-  const handleImageChange = (e) => {
+  // Product functions
+  const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => setImagePreview(reader.result);
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    setUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('products')
+        .upload(fileName, file);
+      
+      if (uploadError) throw uploadError;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('products')
+        .getPublicUrl(fileName);
+      
+      setFormData(prev => ({ ...prev, imageUrl: publicUrl }));
+    } catch (err) {
+      console.error('Image upload error:', err);
+      alert('Failed to upload image');
+    } finally {
+      setUploadingImage(false);
     }
   };
 
-  const handleVideoChange = (e) => {
+  const handleVideoUpload = async (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setVideoFile(file);
-      setVideoPreview(URL.createObjectURL(file));
+    if (!file) return;
+
+    setUploadingVideo(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('products')
+        .upload(fileName, file);
+      
+      if (uploadError) throw uploadError;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('products')
+        .getPublicUrl(fileName);
+      
+      setFormData(prev => ({ ...prev, videoUrl: publicUrl }));
+    } catch (err) {
+      console.error('Video upload error:', err);
+      alert('Failed to upload video');
+    } finally {
+      setUploadingVideo(false);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSaving(true);
+    setLoading(true);
+
     try {
+      const productData = {
+        ...formData,
+        price: parseFloat(formData.price),
+      };
+
       if (editingProduct) {
-        await updateProduct(editingProduct.id, formData, imageFile, videoFile);
+        await updateProduct(editingProduct.id, productData);
       } else {
-        await addProduct(formData, imageFile, videoFile);
+        await addProduct(productData);
       }
+
       closeModal();
+      refreshProducts();
     } catch (err) {
-      console.error('Save error:', err);
+      console.error('Error saving product:', err);
+      alert('Failed to save product');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
-  const handleDelete = async (productId) => {
+  const handleEdit = (product) => {
+    setEditingProduct(product);
+    setFormData({
+      name: product.name || '',
+      description: product.description || '',
+      price: product.price?.toString() || '',
+      category: product.category || '',
+      imageUrl: product.imageUrl || '',
+      videoUrl: product.videoUrl || '',
+      featured: product.featured || false,
+      inStock: product.inStock !== false,
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Are you sure you want to delete this product?')) return;
+    
     try {
-      await deleteProduct(productId);
-      setDeleteConfirm(null);
+      await deleteProduct(id);
+      refreshProducts();
     } catch (err) {
-      console.error('Delete error:', err);
+      console.error('Error deleting product:', err);
+      alert('Failed to delete product');
     }
   };
 
-  const formatPrice = (price) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price);
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingProduct(null);
+    setFormData({
+      name: '',
+      description: '',
+      price: '',
+      category: '',
+      imageUrl: '',
+      videoUrl: '',
+      featured: false,
+      inStock: true,
+    });
+  };
+
+  const formatPrice = (price) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(price);
+  };
+
+  if (!user) {
+    return <Navigate to="/auth/login" replace />;
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen pt-24 flex items-center justify-center bg-cream-50">
+        <div className="text-center">
+          <Shield size={48} className="mx-auto text-coffee-400 mb-4" />
+          <h1 className="text-2xl font-display font-bold text-coffee-900 mb-2">Access Denied</h1>
+          <p className="text-coffee-600">You don't have permission to access this page.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const tabs = [
+    { id: 'products', label: 'Products', icon: Package },
+    { id: 'sales', label: 'Sales', icon: TrendingUp },
+    { id: 'admins', label: 'Admins', icon: Users },
+    { id: 'branding', label: 'Branding', icon: Palette },
+  ];
 
   return (
-    <main className="min-h-screen pt-24 pb-16 bg-cream-50">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="font-display text-3xl font-bold text-coffee-900">Admin Dashboard</h1>
-            <p className="mt-1 text-coffee-600">Manage your store, administrators, and branding</p>
-          </div>
+    <div className="min-h-screen pt-24 pb-16 bg-cream-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-display font-bold text-coffee-900">Admin Dashboard</h1>
+          <p className="text-coffee-500 mt-1">Manage your store and administrators</p>
         </div>
 
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-8">
-          <button
-            onClick={() => setActiveTab('products')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === 'products' 
-                ? 'bg-coffee-900 text-cream-100' 
-                : 'bg-white text-coffee-700 hover:bg-cream-100'
-            }`}
-          >
-            <Package size={18} />
-            Products
-          </button>
-          <button
-            onClick={() => setActiveTab('admins')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === 'admins' 
-                ? 'bg-coffee-900 text-cream-100' 
-                : 'bg-white text-coffee-700 hover:bg-cream-100'
-            }`}
-          >
-            <Users size={18} />
-            Admins
-          </button>
-          <button
-            onClick={() => setActiveTab('branding')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === 'branding' 
-                ? 'bg-coffee-900 text-cream-100' 
-                : 'bg-white text-coffee-700 hover:bg-cream-100'
-            }`}
-          >
-            <Palette size={18} />
-            Branding
-          </button>
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all ${
+                activeTab === tab.id
+                  ? 'bg-coffee-900 text-white'
+                  : 'bg-white text-coffee-600 hover:bg-cream-100'
+              }`}
+            >
+              <tab.icon size={18} />
+              {tab.label}
+            </button>
+          ))}
         </div>
-
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
-            <AlertCircle size={20} /> {error}
-          </div>
-        )}
 
         {/* Products Tab */}
         {activeTab === 'products' && (
-          <>
-            <div className="flex justify-end mb-6">
-              <button onClick={() => openModal()} className="btn-gold flex items-center gap-2">
-                <Plus size={18} /> Add Product
+          <div className="space-y-6">
+            {/* Add Product Button */}
+            <div className="flex justify-end">
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="flex items-center gap-2 px-5 py-2.5 bg-gold-500 text-coffee-900 rounded-xl font-semibold hover:bg-gold-600 transition-colors"
+              >
+                <Plus size={18} />
+                Add Product
               </button>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-              {[
-                { label: 'Total Products', value: products.length, icon: Package },
-                { label: 'In Stock', value: products.filter(p => p.in_stock !== false).length, icon: Check },
-                { label: 'Featured', value: products.filter(p => p.featured).length, icon: Star },
-                { label: 'Categories', value: [...new Set(products.map(p => p.category).filter(Boolean))].length, icon: Tag }
-              ].map((stat, i) => (
-                <div key={i} className="bg-white rounded-xl p-4 shadow-card">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-gold-100 rounded-lg">
-                      <stat.icon size={18} className="text-gold-600" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-coffee-900">{stat.value}</p>
-                      <p className="text-xs text-coffee-500">{stat.label}</p>
-                    </div>
-                  </div>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white rounded-2xl p-5 flex items-center gap-4">
+                <div className="p-3 bg-gold-100 rounded-xl">
+                  <Package size={24} className="text-gold-600" />
                 </div>
-              ))}
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-card overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-cream-50 border-b border-cream-200">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-coffee-600 uppercase">Product</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-coffee-600 uppercase">Category</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-coffee-600 uppercase">Price</th>
-                      <th className="px-6 py-4 text-center text-xs font-semibold text-coffee-600 uppercase">Status</th>
-                      <th className="px-6 py-4 text-right text-xs font-semibold text-coffee-600 uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-cream-100">
-                    {productsLoading ? (
-                      <tr>
-                        <td colSpan={5} className="px-6 py-20 text-center">
-                          <div className="spinner mx-auto" />
-                        </td>
-                      </tr>
-                    ) : products.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-6 py-20 text-center text-coffee-500">
-                          No products yet. Click "Add Product" to get started.
-                        </td>
-                      </tr>
-                    ) : (
-                      products.map((product) => (
-                        <tr key={product.id} className="hover:bg-cream-50/50">
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-4">
-                              <div className="w-14 h-14 bg-cream-100 rounded-lg overflow-hidden flex-shrink-0 relative">
-                                {product.image_url ? (
-                                  <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center">
-                                    <Package size={20} className="text-cream-400" />
-                                  </div>
-                                )}
-                                {product.video_url && (
-                                  <div className="absolute bottom-1 right-1 p-1 bg-coffee-900/70 rounded">
-                                    <Video size={10} className="text-white" />
-                                  </div>
-                                )}
-                              </div>
-                              <div>
-                                <p className="font-medium text-coffee-900 line-clamp-1">{product.name}</p>
-                                <p className="text-sm text-coffee-500 line-clamp-1 max-w-xs">{product.description}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="px-3 py-1 bg-cream-100 text-coffee-700 text-sm rounded-full capitalize">
-                              {product.category || 'general'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="font-semibold text-coffee-900">{formatPrice(product.price)}</span>
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                            <div className="flex items-center justify-center gap-2">
-                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${product.in_stock !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                {product.in_stock !== false ? 'In Stock' : 'Out of Stock'}
-                              </span>
-                              {product.featured && <Star size={14} className="text-gold-500 fill-gold-500" />}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center justify-end gap-2">
-                              <button onClick={() => openModal(product)} className="p-2 hover:bg-cream-100 rounded-lg">
-                                <Edit2 size={16} className="text-coffee-600" />
-                              </button>
-                              <button onClick={() => setDeleteConfirm(product.id)} className="p-2 hover:bg-red-50 rounded-lg">
-                                <Trash2 size={16} className="text-red-500" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                <div>
+                  <p className="text-2xl font-bold text-coffee-900">{stats.totalProducts}</p>
+                  <p className="text-sm text-coffee-500">Total Products</p>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-2xl p-5 flex items-center gap-4">
+                <div className="p-3 bg-green-100 rounded-xl">
+                  <Check size={24} className="text-green-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-coffee-900">{stats.inStock}</p>
+                  <p className="text-sm text-coffee-500">In Stock</p>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-2xl p-5 flex items-center gap-4">
+                <div className="p-3 bg-gold-100 rounded-xl">
+                  <Star size={24} className="text-gold-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-coffee-900">{stats.featured}</p>
+                  <p className="text-sm text-coffee-500">Featured</p>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-2xl p-5 flex items-center gap-4">
+                <div className="p-3 bg-gold-100 rounded-xl">
+                  <Tag size={24} className="text-gold-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-coffee-900">{stats.categories}</p>
+                  <p className="text-sm text-coffee-500">Categories</p>
+                </div>
               </div>
             </div>
-          </>
+
+            {/* Products Table */}
+            <div className="bg-white rounded-2xl overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-cream-200">
+                    <th className="text-left px-6 py-4 text-xs font-semibold text-coffee-500 uppercase tracking-wider">Product</th>
+                    <th className="text-left px-6 py-4 text-xs font-semibold text-coffee-500 uppercase tracking-wider">Category</th>
+                    <th className="text-left px-6 py-4 text-xs font-semibold text-coffee-500 uppercase tracking-wider">Price</th>
+                    <th className="text-left px-6 py-4 text-xs font-semibold text-coffee-500 uppercase tracking-wider">Status</th>
+                    <th className="text-right px-6 py-4 text-xs font-semibold text-coffee-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-cream-100">
+                  {products.map((product) => (
+                    <tr key={product.id} className="hover:bg-cream-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-cream-100 rounded-xl overflow-hidden flex-shrink-0">
+                            {product.imageUrl ? (
+                              <img
+                                src={product.imageUrl}
+                                alt={product.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <ImageIcon size={20} className="text-cream-400" />
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium text-coffee-900">{product.name}</p>
+                            <p className="text-sm text-coffee-500 line-clamp-1">{product.description}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="px-3 py-1 bg-cream-100 text-coffee-600 text-sm rounded-full">
+                          {product.category || 'Uncategorized'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="font-semibold text-coffee-900">{formatPrice(product.price)}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                            product.inStock !== false
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-red-100 text-red-700'
+                          }`}>
+                            {product.inStock !== false ? 'In Stock' : 'Out of Stock'}
+                          </span>
+                          {product.featured && (
+                            <Star size={16} className="text-gold-500 fill-gold-500" />
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleEdit(product)}
+                            className="p-2 text-coffee-500 hover:text-coffee-700 hover:bg-cream-100 rounded-lg transition-colors"
+                          >
+                            <Edit2 size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(product.id)}
+                            className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              
+              {products.length === 0 && (
+                <div className="text-center py-12">
+                  <Package size={48} className="mx-auto text-cream-300 mb-4" />
+                  <p className="text-coffee-500">No products yet. Add your first product!</p>
+                </div>
+              )}
+            </div>
+          </div>
         )}
+
+        {/* Sales Tab */}
+        {activeTab === 'sales' && <SalesDashboard />}
 
         {/* Admins Tab */}
         {activeTab === 'admins' && (
           <div className="space-y-6">
-            {adminError && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
-                <AlertCircle size={20} /> {adminError}
-                <button onClick={() => setAdminError(null)} className="ml-auto">
-                  <X size={16} />
-                </button>
-              </div>
-            )}
-
-            {/* Escalation MFA Setup */}
             {!hasEscalationMFA && (
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6">
                 <div className="flex items-start gap-4">
-                  <div className="p-3 bg-amber-100 rounded-xl">
-                    <Shield size={24} className="text-amber-600" />
-                  </div>
+                  <AlertTriangle className="text-amber-500 flex-shrink-0" size={24} />
                   <div className="flex-1">
-                    <h3 className="font-display text-lg font-semibold text-amber-900">Escalation MFA Required</h3>
-                    <p className="mt-1 text-amber-700">
-                      Before you can add or remove admins, you need to set up Escalation MFA. This provides an extra layer of security for sensitive admin actions.
+                    <h3 className="font-semibold text-amber-800 mb-1">Escalation MFA Required</h3>
+                    <p className="text-amber-700 text-sm mb-4">
+                      To add or remove admins, you need to set up a separate MFA factor for escalation.
                     </p>
                     <button
-                      onClick={setupEscalationMFA}
-                      className="mt-4 flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700"
+                      onClick={handleSetupEscalationMFA}
+                      disabled={adminLoading}
+                      className="px-4 py-2 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition-colors disabled:opacity-50"
                     >
-                      <QrCode size={18} />
-                      Set Up Escalation MFA
+                      {adminLoading ? 'Setting up...' : 'Set Up Escalation MFA'}
                     </button>
                   </div>
                 </div>
               </div>
             )}
 
-            {hasEscalationMFA && (
-              <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
-                <Check size={20} className="text-green-600" />
-                <span className="text-green-700 font-medium">Escalation MFA is enabled</span>
-              </div>
-            )}
-
-            {/* Add Admin Form */}
-            <div className="bg-white rounded-2xl shadow-card p-6">
-              <h3 className="font-display text-xl font-semibold text-coffee-900 mb-4 flex items-center gap-2">
-                <UserPlus size={20} />
-                Add New Admin
-              </h3>
+            <div className="bg-white rounded-2xl p-6">
+              <h3 className="font-display font-semibold text-coffee-900 mb-4">Add New Admin</h3>
               <div className="flex gap-3">
                 <input
                   type="email"
                   value={newAdminEmail}
                   onChange={(e) => setNewAdminEmail(e.target.value)}
-                  placeholder="admin@example.com"
-                  className="input-luxe flex-1"
-                  disabled={!hasEscalationMFA}
+                  placeholder="Enter email address"
+                  className="flex-1 px-4 py-3 border border-cream-200 rounded-xl focus:outline-none focus:border-gold-400"
                 />
                 <button
                   onClick={handleAddAdmin}
-                  disabled={!hasEscalationMFA || !newAdminEmail.trim() || addingAdmin}
-                  className="btn-gold flex items-center gap-2 disabled:opacity-50"
+                  disabled={!newAdminEmail || adminLoading}
+                  className="px-6 py-3 bg-gold-500 text-coffee-900 rounded-xl font-semibold hover:bg-gold-600 transition-colors disabled:opacity-50"
                 >
-                  {addingAdmin ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
                   Add Admin
                 </button>
               </div>
-              {!hasEscalationMFA && (
-                <p className="mt-2 text-sm text-coffee-500">Set up Escalation MFA to add admins</p>
-              )}
             </div>
 
-            {/* Admins List */}
-            <div className="bg-white rounded-2xl shadow-card overflow-hidden">
-              <div className="p-6 border-b border-cream-200">
-                <h3 className="font-display text-xl font-semibold text-coffee-900 flex items-center gap-2">
-                  <Users size={20} />
-                  Current Admins
-                </h3>
-              </div>
-              <div className="divide-y divide-cream-100">
-                {loadingAdmins ? (
-                  <div className="p-8 text-center">
-                    <div className="spinner mx-auto" />
-                  </div>
-                ) : admins.length === 0 ? (
-                  <div className="p-8 text-center text-coffee-500">
-                    No admins in database. The admin from VITE_ADMIN_EMAIL still has access.
-                  </div>
-                ) : (
-                  admins.map((admin) => (
-                    <div key={admin.email} className="flex items-center justify-between p-4 hover:bg-cream-50">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gold-100 rounded-full flex items-center justify-center">
-                          <span className="font-semibold text-gold-600">
-                            {admin.email.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-medium text-coffee-900">{admin.email}</p>
-                          <p className="text-xs text-coffee-500">
-                            Added {new Date(admin.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
+            <div className="bg-white rounded-2xl p-6">
+              <h3 className="font-display font-semibold text-coffee-900 mb-4">Current Admins</h3>
+              <div className="space-y-3">
+                {admins.map((admin) => (
+                  <div key={admin.id} className="flex items-center justify-between p-4 bg-cream-50 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gold-100 rounded-full flex items-center justify-center">
+                        <ShieldCheck size={20} className="text-gold-600" />
                       </div>
+                      <div>
+                        <p className="font-medium text-coffee-900">{admin.email}</p>
+                        <p className="text-xs text-coffee-500">Added {new Date(admin.created_at).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    {admin.email !== user?.email && (
                       <button
-                        onClick={() => handleDeleteAdmin(admin.email)}
-                        disabled={admin.email === user.email.toLowerCase()}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
-                        title={admin.email === user.email.toLowerCase() ? "Can't remove yourself" : 'Remove admin'}
+                        onClick={() => handleRemoveAdmin(admin.id, admin.email)}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                       >
                         <Trash2 size={18} />
                       </button>
-                    </div>
-                  ))
-                )}
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         )}
 
         {/* Branding Tab */}
-        {activeTab === 'branding' && (
-          <BrandingEditor />
-        )}
+        {activeTab === 'branding' && <BrandingEditor />}
       </div>
 
       {/* Product Modal */}
       <AnimatePresence>
         {isModalOpen && (
-          <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-coffee-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={closeModal}
+          >
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={closeModal}
-              className="fixed inset-0 bg-coffee-900/50 backdrop-blur-sm z-50"
-            />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
-              >
-                <div className="flex items-center justify-between p-6 border-b border-cream-200">
-                  <h2 className="font-display text-xl font-semibold text-coffee-900">
-                    {editingProduct ? 'Edit Product' : 'Add New Product'}
-                  </h2>
-                  <button onClick={closeModal} className="p-2 hover:bg-cream-100 rounded-lg">
-                    <X size={20} />
-                  </button>
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+            >
+              <div className="p-6 border-b border-cream-200 flex justify-between items-center">
+                <h2 className="text-xl font-display font-semibold text-coffee-900">
+                  {editingProduct ? 'Edit Product' : 'Add Product'}
+                </h2>
+                <button onClick={closeModal} className="p-2 hover:bg-cream-100 rounded-lg">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-coffee-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-4 py-3 border border-cream-200 rounded-xl focus:outline-none focus:border-gold-400"
+                    required
+                  />
                 </div>
 
-                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-coffee-700 mb-1">Description</label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    rows={3}
+                    className="w-full px-4 py-3 border border-cream-200 rounded-xl focus:outline-none focus:border-gold-400"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="flex items-center gap-2 text-sm font-medium text-coffee-700 mb-2">
-                      <Package size={16} /> Product Name
-                    </label>
+                    <label className="block text-sm font-medium text-coffee-700 mb-1">Price</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                      className="w-full px-4 py-3 border border-cream-200 rounded-xl focus:outline-none focus:border-gold-400"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-coffee-700 mb-1">Category</label>
                     <input
                       type="text"
-                      required
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="input-luxe"
-                      placeholder="Enter product name"
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="w-full px-4 py-3 border border-cream-200 rounded-xl focus:outline-none focus:border-gold-400"
                     />
                   </div>
+                </div>
 
-                  <div>
-                    <label className="flex items-center gap-2 text-sm font-medium text-coffee-700 mb-2">
-                      <FileText size={16} /> Description
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      className="input-luxe resize-none"
-                      placeholder="Describe your product"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="flex items-center gap-2 text-sm font-medium text-coffee-700 mb-2">
-                        <DollarSign size={16} /> Price (USD)
-                      </label>
-                      <input
-                        type="number"
-                        required
-                        min="0"
-                        step="0.01"
-                        value={formData.price}
-                        onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                        className="input-luxe"
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div>
-                      <label className="flex items-center gap-2 text-sm font-medium text-coffee-700 mb-2">
-                        <Tag size={16} /> Category
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.category}
-                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                        className="input-luxe"
-                        placeholder="e.g., accessories"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="flex items-center gap-2 text-sm font-medium text-coffee-700 mb-2">
-                      <Upload size={16} /> Product Image
-                    </label>
-                    <input
-                      ref={imageInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      className="hidden"
-                    />
-                    <div
-                      onClick={() => imageInputRef.current?.click()}
-                      className="border-2 border-dashed border-cream-300 rounded-xl p-4 cursor-pointer hover:border-gold-400 transition-colors"
+                <div>
+                  <label className="block text-sm font-medium text-coffee-700 mb-1">Product Image</label>
+                  <div className="flex gap-3">
+                    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingImage}
+                      className="flex items-center gap-2 px-4 py-2 border border-cream-200 rounded-xl hover:bg-cream-50 transition-colors disabled:opacity-50"
                     >
-                      {imagePreview ? (
-                        <img src={imagePreview} alt="Preview" className="w-full h-32 object-cover rounded-lg" />
-                      ) : (
-                        <div className="flex flex-col items-center text-cream-500 py-4">
-                          <Upload size={24} />
-                          <span className="text-xs mt-1">Upload Image</span>
-                        </div>
-                      )}
-                    </div>
+                      {uploadingImage ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                      Upload Image
+                    </button>
+                    {formData.imageUrl && (
+                      <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 rounded-xl text-sm">
+                        <ImageIcon size={16} />
+                        Image uploaded
+                      </div>
+                    )}
                   </div>
+                </div>
 
-                  <div>
-                    <label className="flex items-center gap-2 text-sm font-medium text-coffee-700 mb-2">
-                      <Video size={16} /> Product Video (optional - plays on hover)
-                    </label>
-                    <input
-                      ref={videoInputRef}
-                      type="file"
-                      accept="video/*"
-                      onChange={handleVideoChange}
-                      className="hidden"
-                    />
-                    <div
+                <div>
+                  <label className="block text-sm font-medium text-coffee-700 mb-1">Product Video (Optional)</label>
+                  <div className="flex gap-3">
+                    <input ref={videoInputRef} type="file" accept="video/*" onChange={handleVideoUpload} className="hidden" />
+                    <button
+                      type="button"
                       onClick={() => videoInputRef.current?.click()}
-                      className="border-2 border-dashed border-cream-300 rounded-xl p-4 cursor-pointer hover:border-gold-400 transition-colors"
+                      disabled={uploadingVideo}
+                      className="flex items-center gap-2 px-4 py-2 border border-cream-200 rounded-xl hover:bg-cream-50 transition-colors disabled:opacity-50"
                     >
-                      {videoPreview ? (
-                        <video src={videoPreview} className="w-full h-32 object-cover rounded-lg" muted />
-                      ) : (
-                        <div className="flex flex-col items-center text-cream-500 py-4">
-                          <Video size={24} />
-                          <span className="text-xs mt-1">Upload Video</span>
-                        </div>
-                      )}
-                    </div>
+                      {uploadingVideo ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                      Upload Video
+                    </button>
+                    {formData.videoUrl && (
+                      <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 rounded-xl text-sm">
+                        <Play size={16} />
+                        Video uploaded
+                      </div>
+                    )}
                   </div>
+                </div>
 
-                  <div className="flex items-center gap-6">
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.in_stock}
-                        onChange={(e) => setFormData({ ...formData, in_stock: e.target.checked })}
-                        className="w-5 h-5 rounded border-cream-300 text-gold-500"
-                      />
-                      <span className="text-sm text-coffee-700">In Stock</span>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.featured}
-                        onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
-                        className="w-5 h-5 rounded border-cream-300 text-gold-500"
-                      />
-                      <span className="text-sm text-coffee-700">Featured</span>
-                    </label>
-                  </div>
-                </form>
+                <div className="flex gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.featured}
+                      onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
+                      className="w-5 h-5 rounded border-cream-300 text-gold-500 focus:ring-gold-400"
+                    />
+                    <span className="text-sm text-coffee-700">Featured Product</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.inStock}
+                      onChange={(e) => setFormData({ ...formData, inStock: e.target.checked })}
+                      className="w-5 h-5 rounded border-cream-300 text-gold-500 focus:ring-gold-400"
+                    />
+                    <span className="text-sm text-coffee-700">In Stock</span>
+                  </label>
+                </div>
 
-                <div className="flex items-center justify-end gap-3 p-6 border-t border-cream-200 bg-cream-50">
-                  <button
-                    type="button"
-                    onClick={closeModal}
-                    className="px-6 py-2.5 text-coffee-700 hover:bg-cream-200 rounded-lg"
-                  >
+                <div className="flex gap-3 pt-4">
+                  <button type="button" onClick={closeModal} className="flex-1 py-3 border border-cream-200 text-coffee-700 rounded-xl font-medium hover:bg-cream-50 transition-colors">
                     Cancel
                   </button>
                   <button
-                    onClick={handleSubmit}
-                    disabled={saving}
-                    className="btn-gold flex items-center gap-2 disabled:opacity-50"
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 py-3 bg-gold-500 text-coffee-900 rounded-xl font-semibold hover:bg-gold-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {saving ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-coffee-400 border-t-transparent rounded-full animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save size={16} />
-                        {editingProduct ? 'Update' : 'Create'}
-                      </>
-                    )}
+                    {loading ? <><Loader2 size={18} className="animate-spin" />Saving...</> : <><Save size={18} />{editingProduct ? 'Update' : 'Create'}</>}
                   </button>
                 </div>
-              </motion.div>
-            </div>
-          </>
+              </form>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Delete Product Confirmation */}
+      {/* Escalation Setup Modal */}
       <AnimatePresence>
-        {deleteConfirm && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setDeleteConfirm(null)}
-              className="fixed inset-0 bg-coffee-900/50 backdrop-blur-sm z-50"
-            />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6"
-              >
-                <div className="text-center">
-                  <div className="w-16 h-16 mx-auto bg-red-100 rounded-full flex items-center justify-center mb-4">
-                    <Trash2 size={24} className="text-red-500" />
-                  </div>
-                  <h3 className="font-display text-lg font-semibold text-coffee-900">Delete Product?</h3>
-                  <p className="mt-2 text-sm text-coffee-600">This action cannot be undone.</p>
-                  <div className="mt-6 flex items-center justify-center gap-3">
-                    <button
-                      onClick={() => setDeleteConfirm(null)}
-                      className="px-5 py-2 text-coffee-700 hover:bg-cream-100 rounded-lg"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={() => handleDelete(deleteConfirm)}
-                      className="px-5 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          </>
+        {showEscalationSetup && escalationSetupData && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-coffee-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-2xl p-6 w-full max-w-md">
+              <h3 className="text-xl font-display font-semibold text-coffee-900 mb-4">Setup Escalation MFA</h3>
+              <p className="text-coffee-600 text-sm mb-4">Scan this QR code with a <strong>different</strong> authenticator app than your login MFA.</p>
+              <div className="bg-white p-4 rounded-xl border border-cream-200 mb-4 flex justify-center">
+                <img src={escalationSetupData.totp.qr_code} alt="QR Code" className="w-48 h-48" />
+              </div>
+              <input type="text" value={escalationCode} onChange={(e) => setEscalationCode(e.target.value)} placeholder="Enter 6-digit code" className="w-full px-4 py-3 border border-cream-200 rounded-xl mb-4 text-center text-2xl tracking-widest" maxLength={6} />
+              <div className="flex gap-3">
+                <button onClick={() => { setShowEscalationSetup(false); setEscalationSetupData(null); setEscalationCode(''); }} className="flex-1 py-3 border border-cream-200 rounded-xl font-medium">Cancel</button>
+                <button onClick={handleVerifyEscalationSetup} disabled={escalationCode.length !== 6 || adminLoading} className="flex-1 py-3 bg-gold-500 text-coffee-900 rounded-xl font-semibold disabled:opacity-50">{adminLoading ? 'Verifying...' : 'Verify'}</button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Escalation MFA Setup Modal */}
+      {/* Escalation Verification Modal */}
       <AnimatePresence>
-        {showEscalationSetup && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowEscalationSetup(false)}
-              className="fixed inset-0 bg-coffee-900/50 backdrop-blur-sm z-50"
-            />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6"
-              >
-                <div className="text-center mb-6">
-                  <div className="w-16 h-16 mx-auto bg-amber-100 rounded-full flex items-center justify-center mb-4">
-                    <Shield size={28} className="text-amber-600" />
-                  </div>
-                  <h3 className="font-display text-xl font-semibold text-coffee-900">Set Up Escalation MFA</h3>
-                  <p className="mt-2 text-coffee-600 text-sm">
-                    Scan this QR code with a <strong>different</strong> authenticator app or account than your login MFA.
-                  </p>
+        {showEscalationModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-coffee-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-2xl p-6 w-full max-w-md">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-amber-100 rounded-xl"><ShieldCheck size={24} className="text-amber-600" /></div>
+                <div>
+                  <h3 className="text-lg font-display font-semibold text-coffee-900">Verify Escalation</h3>
+                  <p className="text-sm text-coffee-500">{pendingAction?.type === 'add' ? `Adding ${pendingAction.email}` : `Removing ${pendingAction?.email}`}</p>
                 </div>
-
-                {escalationQrCode && (
-                  <img src={escalationQrCode} alt="Escalation MFA QR" className="mx-auto rounded-xl shadow-card mb-4" />
-                )}
-
-                {escalationSecret && (
-                  <div className="p-3 bg-cream-100 rounded-lg mb-4">
-                    <p className="text-xs text-coffee-500 mb-1">Manual entry code:</p>
-                    <code className="text-sm font-mono text-coffee-900 break-all">{escalationSecret}</code>
-                  </div>
-                )}
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-coffee-700 mb-2">
-                      Enter 6-digit code to verify
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={6}
-                      value={escalationCode}
-                      onChange={(e) => setEscalationCode(e.target.value.replace(/\D/g, ''))}
-                      className="input-luxe text-center text-2xl tracking-widest"
-                      placeholder="000000"
-                    />
-                  </div>
-
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => {
-                        setShowEscalationSetup(false);
-                        setEscalationCode('');
-                      }}
-                      className="flex-1 px-4 py-2 text-coffee-700 hover:bg-cream-100 rounded-lg"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={verifyEscalationSetup}
-                      disabled={escalationCode.length !== 6}
-                      className="flex-1 btn-gold disabled:opacity-50"
-                    >
-                      Verify & Enable
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          </>
+              </div>
+              <input type="text" value={escalationCode} onChange={(e) => setEscalationCode(e.target.value)} placeholder="Enter escalation code" className="w-full px-4 py-3 border border-cream-200 rounded-xl mb-4 text-center text-2xl tracking-widest" maxLength={6} />
+              <div className="flex gap-3">
+                <button onClick={() => { setShowEscalationModal(false); setEscalationCode(''); setPendingAction(null); }} className="flex-1 py-3 border border-cream-200 rounded-xl font-medium">Cancel</button>
+                <button onClick={executeAdminAction} disabled={escalationCode.length !== 6 || adminLoading} className="flex-1 py-3 bg-gold-500 text-coffee-900 rounded-xl font-semibold disabled:opacity-50">{adminLoading ? 'Processing...' : 'Confirm'}</button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Escalation MFA Verification Modal */}
-      <AnimatePresence>
-        {showEscalationVerify && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => {
-                setShowEscalationVerify(false);
-                setEscalationCode('');
-                setPendingAdminAction(null);
-              }}
-              className="fixed inset-0 bg-coffee-900/50 backdrop-blur-sm z-50"
-            />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6"
-              >
-                <div className="text-center mb-6">
-                  <div className="w-16 h-16 mx-auto bg-amber-100 rounded-full flex items-center justify-center mb-4">
-                    <Shield size={28} className="text-amber-600" />
-                  </div>
-                  <h3 className="font-display text-xl font-semibold text-coffee-900">Verify Escalation MFA</h3>
-                  <p className="mt-2 text-coffee-600 text-sm">
-                    Enter your Escalation MFA code to {pendingAdminAction?.type === 'add' ? 'add' : 'remove'} admin:
-                    <br />
-                    <strong>{pendingAdminAction?.email}</strong>
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={6}
-                    value={escalationCode}
-                    onChange={(e) => setEscalationCode(e.target.value.replace(/\D/g, ''))}
-                    className="input-luxe text-center text-2xl tracking-widest"
-                    placeholder="000000"
-                    autoFocus
-                  />
-
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => {
-                        setShowEscalationVerify(false);
-                        setEscalationCode('');
-                        setPendingAdminAction(null);
-                      }}
-                      className="flex-1 px-4 py-2 text-coffee-700 hover:bg-cream-100 rounded-lg"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={executeAdminAction}
-                      disabled={escalationCode.length !== 6 || addingAdmin}
-                      className="flex-1 btn-gold disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      {addingAdmin ? <Loader2 size={18} className="animate-spin" /> : 'Confirm'}
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          </>
-        )}
-      </AnimatePresence>
-    </main>
+    </div>
   );
 }

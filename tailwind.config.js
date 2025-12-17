@@ -6,50 +6,56 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        display: ['Playfair Display', 'serif'],
+        sans: ['Inter', 'sans-serif'],
+        accent: ['Cormorant Garamond', 'serif'],
+      },
       colors: {
-        cream: {
-          50: '#FEFDFB',
-          100: '#FDF9F3',
-          200: '#FAF3E8',
-          300: '#F5EBDA',
-          400: '#EEE0C8',
-          500: '#E5D3B3'
+        // Dynamic colors using CSS variables with fallbacks
+        gold: {
+          50: 'rgb(var(--color-gold-50) / <alpha-value>)',
+          100: 'rgb(var(--color-gold-100) / <alpha-value>)',
+          200: 'rgb(var(--color-gold-200) / <alpha-value>)',
+          300: 'rgb(var(--color-gold-300) / <alpha-value>)',
+          400: 'rgb(var(--color-gold-400) / <alpha-value>)',
+          500: 'rgb(var(--color-gold-500) / <alpha-value>)',
+          600: 'rgb(var(--color-gold-600) / <alpha-value>)',
+          700: 'rgb(var(--color-gold-700) / <alpha-value>)',
         },
         coffee: {
-          50: '#F9F6F3',
-          100: '#EDE5DC',
-          200: '#D9C7B5',
-          300: '#C4A98D',
-          400: '#A68763',
-          500: '#8B6F4E',
-          600: '#70593E',
-          700: '#5A4832',
-          800: '#3D3022',
-          900: '#2A2118'
+          50: 'rgb(var(--color-coffee-50) / <alpha-value>)',
+          100: 'rgb(var(--color-coffee-100) / <alpha-value>)',
+          200: 'rgb(var(--color-coffee-200) / <alpha-value>)',
+          300: 'rgb(var(--color-coffee-300) / <alpha-value>)',
+          400: 'rgb(var(--color-coffee-400) / <alpha-value>)',
+          500: 'rgb(var(--color-coffee-500) / <alpha-value>)',
+          600: 'rgb(var(--color-coffee-600) / <alpha-value>)',
+          700: 'rgb(var(--color-coffee-700) / <alpha-value>)',
+          800: 'rgb(var(--color-coffee-800) / <alpha-value>)',
+          900: 'rgb(var(--color-coffee-900) / <alpha-value>)',
         },
-        gold: {
-          50: '#FFFBEB',
-          100: '#FEF3C7',
-          200: '#FDE68A',
-          300: '#FCD34D',
-          400: '#FBBF24',
-          500: '#D4A854',
-          600: '#B8942F',
-          700: '#92751D',
-          800: '#6B5A1A',
-          900: '#4A3F12'
-        }
-      },
-      fontFamily: {
-        'display': ['"Cormorant Garamond"', 'serif'],
-        'body': ['"DM Sans"', 'sans-serif'],
-        'accent': ['"Italiana"', 'serif']
+        cream: {
+          50: 'rgb(var(--color-cream-50) / <alpha-value>)',
+          100: 'rgb(var(--color-cream-100) / <alpha-value>)',
+          200: 'rgb(var(--color-cream-200) / <alpha-value>)',
+          300: 'rgb(var(--color-cream-300) / <alpha-value>)',
+          400: 'rgb(var(--color-cream-400) / <alpha-value>)',
+        },
       },
       boxShadow: {
-        'gold': '0 8px 32px -8px rgba(212, 168, 84, 0.4)',
-        'card': '0 4px 24px -4px rgba(42, 33, 24, 0.08)',
-        'card-hover': '0 12px 40px -8px rgba(42, 33, 24, 0.15)'
-      }
+        'card': '0 4px 20px rgba(0, 0, 0, 0.08)',
+        'gold': '0 4px 14px rgba(196, 160, 82, 0.25)',
+      },
+      animation: {
+        'shimmer': 'shimmer 2s linear infinite',
+      },
+      keyframes: {
+        shimmer: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
+      },
     },
   },
   plugins: [],

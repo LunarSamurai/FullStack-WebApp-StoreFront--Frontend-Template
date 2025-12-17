@@ -1,13 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================
+   CSS Variables for Dynamic Theming
+   These are the defaults - BrandingContext will override them
+   ============================================ */
 :root {
-  --gold-gradient: linear-gradient(135deg, #D4A854 0%, #FBBF24 50%, #B8942F 100%);
-  --cream-gradient: linear-gradient(180deg, #FEFDFB 0%, #FAF3E8 100%);
+  /* Gold shades (Primary) */
+  --color-gold-50: 253 251 245;
+  --color-gold-100: 250 244 225;
+  --color-gold-200: 245 233 190;
+  --color-gold-300: 235 213 140;
+  --color-gold-400: 220 185 90;
+  --color-gold-500: 196 160 82;
+  --color-gold-600: 170 135 60;
+  --color-gold-700: 140 110 45;
+
+  /* Coffee shades (Secondary/Dark) */
+  --color-coffee-50: 250 247 242;
+  --color-coffee-100: 245 240 232;
+  --color-coffee-200: 235 225 210;
+  --color-coffee-300: 200 180 155;
+  --color-coffee-400: 160 140 115;
+  --color-coffee-500: 122 106 90;
+  --color-coffee-600: 100 85 70;
+  --color-coffee-700: 80 68 55;
+  --color-coffee-800: 61 52 42;
+  --color-coffee-900: 61 46 30;
+
+  /* Cream shades (Background) */
+  --color-cream-50: 250 247 242;
+  --color-cream-100: 245 240 232;
+  --color-cream-200: 235 225 210;
+  --color-cream-300: 220 208 190;
+  --color-cream-400: 200 185 165;
 }
 
+/* ============================================
+   Base Styles
+   ============================================ */
 * {
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
 }
 
@@ -16,30 +53,42 @@ html {
 }
 
 body {
-  font-family: 'DM Sans', sans-serif;
-  background: var(--cream-gradient);
-  color: #2A2118;
-  min-height: 100vh;
+  font-family: 'Inter', sans-serif;
+  background-color: rgb(var(--color-cream-50));
+  color: rgb(var(--color-coffee-900));
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-::-webkit-scrollbar {
-  width: 8px;
+/* ============================================
+   Typography
+   ============================================ */
+.font-display {
+  font-family: 'Playfair Display', serif;
 }
 
-::-webkit-scrollbar-track {
-  background: #FAF3E8;
+.font-accent {
+  font-family: 'Cormorant Garamond', serif;
 }
 
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #D4A854, #B8942F);
-  border-radius: 4px;
-}
+/* ============================================
+   Component Styles
+   ============================================ */
 
+/* Gold shimmer effect for text */
 .gold-shimmer {
-  background: linear-gradient(90deg, #D4A854 0%, #FBBF24 25%, #D4A854 50%, #FBBF24 75%, #D4A854 100%);
+  background: linear-gradient(
+    90deg,
+    rgb(var(--color-gold-600)) 0%,
+    rgb(var(--color-gold-400)) 25%,
+    rgb(var(--color-gold-500)) 50%,
+    rgb(var(--color-gold-400)) 75%,
+    rgb(var(--color-gold-600)) 100%
+  );
   background-size: 200% auto;
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   animation: shimmer 3s linear infinite;
 }
@@ -49,97 +98,158 @@ body {
   100% { background-position: 200% center; }
 }
 
-.product-card {
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-}
-
-.product-card::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: var(--gold-gradient);
-  transform: scaleX(0);
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.product-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 20px 50px -12px rgba(42, 33, 24, 0.2);
-}
-
-.product-card:hover::after {
-  transform: scaleX(1);
-}
-
+/* Primary button style */
 .btn-gold {
-  background: var(--gold-gradient);
-  color: #2A2118;
+  background: linear-gradient(135deg, rgb(var(--color-gold-400)) 0%, rgb(var(--color-gold-500)) 100%);
+  color: rgb(var(--color-coffee-900));
   font-weight: 600;
-  padding: 0.75rem 2rem;
-  border-radius: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
   transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(196, 160, 82, 0.25);
 }
 
 .btn-gold:hover {
-  box-shadow: 0 8px 32px -8px rgba(212, 168, 84, 0.5);
+  background: linear-gradient(135deg, rgb(var(--color-gold-500)) 0%, rgb(var(--color-gold-600)) 100%);
   transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(196, 160, 82, 0.35);
 }
 
-.btn-gold:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
+/* Card shadows */
+.shadow-card {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
-.input-luxe {
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid #EEE0C8;
-  border-radius: 0.5rem;
-  padding: 0.75rem 1rem;
+.shadow-gold {
+  box-shadow: 0 4px 14px rgba(196, 160, 82, 0.25);
+}
+
+/* ============================================
+   Product Card Styles
+   ============================================ */
+.product-card {
   transition: all 0.3s ease;
+}
+
+.product-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+.product-card .media-container {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+
+.product-card .media-container img,
+.product-card .media-container video {
   width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
 }
 
-.input-luxe:focus {
-  outline: none;
-  border-color: #D4A854;
-  box-shadow: 0 0 0 3px rgba(212, 168, 84, 0.2);
+.product-card:hover .media-container img {
+  transform: scale(1.05);
 }
 
+/* ============================================
+   Loading Spinner
+   ============================================ */
 .spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid #EEE0C8;
-  border-top-color: #D4A854;
+  border: 3px solid rgb(var(--color-cream-200));
+  border-top-color: rgb(var(--color-gold-500));
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
-.media-container {
-  position: relative;
-  overflow: hidden;
-  aspect-ratio: 1;
+/* ============================================
+   Scrollbar Styling
+   ============================================ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-.media-container video,
-.media-container img {
+::-webkit-scrollbar-track {
+  background: rgb(var(--color-cream-100));
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--color-coffee-300));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--color-coffee-400));
+}
+
+/* ============================================
+   Form Elements
+   ============================================ */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: rgb(var(--color-gold-400));
+}
+
+.input-luxe {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgb(var(--color-cream-200));
+  border-radius: 0.75rem;
+  background-color: white;
+  color: rgb(var(--color-coffee-900));
+  font-size: 0.875rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.glass {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(20px);
+.input-luxe:focus {
+  outline: none;
+  border-color: rgb(var(--color-gold-400));
+  box-shadow: 0 0 0 3px rgba(196, 160, 82, 0.1);
+}
+
+.input-luxe::placeholder {
+  color: rgb(var(--color-coffee-400));
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ============================================
+   Transitions
+   ============================================ */
+.transition-colors {
+  transition-property: color, background-color, border-color;
+  transition-duration: 200ms;
+  transition-timing-function: ease;
+}
+
+.transition-all {
+  transition-property: all;
+  transition-duration: 300ms;
+  transition-timing-function: ease;
 }
