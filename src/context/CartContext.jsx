@@ -3,21 +3,17 @@ import { v4 as uuidv4 } from 'uuid';
 
 const CartContext = createContext(null);
 
-// Cart item structure
-// { id, productId, name, price, quantity, imageUrl, videoUrl }
-
 export function CartProvider({ children }) {
   const [items, setItems] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [notification, setNotification] = useState(null);
 
-  // Load cart from localStorage on mount
+  // Load cart from localStorage
   useEffect(() => {
     try {
       const savedCart = localStorage.getItem('luxe-cart');
       if (savedCart) {
         const parsed = JSON.parse(savedCart);
-        // Validate cart structure
         if (Array.isArray(parsed)) {
           setItems(parsed.filter(item => 
             item.id && item.productId && item.name && 
@@ -31,7 +27,7 @@ export function CartProvider({ children }) {
     }
   }, []);
 
-  // Save cart to localStorage whenever it changes
+  // Save cart to localStorage
   useEffect(() => {
     try {
       localStorage.setItem('luxe-cart', JSON.stringify(items));
@@ -40,13 +36,11 @@ export function CartProvider({ children }) {
     }
   }, [items]);
 
-  // Show notification
   const showNotification = useCallback((message, type = 'success') => {
     setNotification({ id: uuidv4(), message, type });
     setTimeout(() => setNotification(null), 3000);
   }, []);
 
-  // Add item to cart
   const addItem = useCallback((product, quantity = 1) => {
     if (!product || quantity < 1) return;
 
@@ -56,7 +50,6 @@ export function CartProvider({ children }) {
       );
 
       if (existingIndex >= 0) {
-        // Update quantity of existing item
         const updated = [...currentItems];
         updated[existingIndex] = {
           ...updated[existingIndex],
@@ -65,7 +58,6 @@ export function CartProvider({ children }) {
         return updated;
       }
 
-      // Add new item
       return [...currentItems, {
         id: uuidv4(),
         productId: product.id,
@@ -73,7 +65,6 @@ export function CartProvider({ children }) {
         price: product.price,
         quantity,
         imageUrl: product.imageUrl || null,
-        videoUrl: product.videoUrl || null,
         description: product.description || ''
       }];
     });
@@ -82,7 +73,6 @@ export function CartProvider({ children }) {
     setIsOpen(true);
   }, [showNotification]);
 
-  // Remove item from cart
   const removeItem = useCallback((itemId) => {
     setItems(currentItems => {
       const item = currentItems.find(i => i.id === itemId);
@@ -93,7 +83,6 @@ export function CartProvider({ children }) {
     });
   }, [showNotification]);
 
-  // Update item quantity
   const updateQuantity = useCallback((itemId, quantity) => {
     if (quantity < 1) {
       removeItem(itemId);
@@ -107,20 +96,17 @@ export function CartProvider({ children }) {
     );
   }, [removeItem]);
 
-  // Clear entire cart
   const clearCart = useCallback(() => {
     setItems([]);
     showNotification('Cart cleared', 'info');
   }, [showNotification]);
 
-  // Calculate totals
   const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
-  const tax = subtotal * 0.08; // 8% tax rate
-  const shipping = subtotal > 100 ? 0 : 9.99; // Free shipping over $100
+  const tax = subtotal * 0.08;
+  const shipping = subtotal > 100 ? 0 : 9.99;
   const total = subtotal + tax + shipping;
 
-  // Toggle cart drawer
   const toggleCart = useCallback(() => setIsOpen(prev => !prev), []);
   const openCart = useCallback(() => setIsOpen(true), []);
   const closeCart = useCallback(() => setIsOpen(false), []);

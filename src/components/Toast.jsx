@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle, XCircle, Info, X } from 'lucide-react';
+import { CheckCircle, XCircle, Info } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
 export default function Toast() {
@@ -23,9 +23,7 @@ export default function Toast() {
             className="flex items-center gap-3 px-4 py-3 bg-white rounded-xl shadow-card-hover border border-cream-200"
           >
             {icons[notification.type] || icons.info}
-            <span className="text-sm font-medium text-coffee-800">
-              {notification.message}
-            </span>
+            <span className="text-sm font-medium text-coffee-800">{notification.message}</span>
           </motion.div>
         )}
       </AnimatePresence>

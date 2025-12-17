@@ -1,23 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { 
-  collection, 
-  doc, 
-  getDocs, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  onSnapshot,
-  query,
-  orderBy,
-  serverTimestamp
-} from 'firebase/firestore';
-import { 
-  ref, 
-  uploadBytes, 
-  getDownloadURL, 
-  deleteObject 
-} from 'firebase/storage';
-import { db, storage } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import { v4 as uuidv4 } from 'uuid';
 
 const ProductsContext = createContext(null);
@@ -27,92 +9,105 @@ export function ProductsProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Real-time products listener
-  useEffect(() => {
-    const productsQuery = query(
-      collection(db, 'products'),
-      orderBy('createdAt', 'desc')
-    );
+  // Fetch products
+  const fetchProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    const unsubscribe = onSnapshot(
-      productsQuery,
-      (snapshot) => {
-        const productsList = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setProducts(productsList);
-        setLoading(false);
-      },
-      (err) => {
-        console.error('Products listener error:', err);
-        setError('Failed to load products');
-        setLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
-  }, []);
-
-  // Upload media file (image or video/gif)
-  const uploadMedia = async (file, type = 'image') => {
-    if (!file) return null;
-
-    // Validate file type
-    const allowedTypes = {
-      image: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
-      video: ['video/mp4', 'video/webm', 'image/gif']
-    };
-
-    if (!allowedTypes[type].includes(file.type)) {
-      throw new Error(`Invalid ${type} file type`);
+      if (error) throw error;
+      setProducts(data || []);
+    } catch (err) {
+      console.error('Error fetching products:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-
-    // Validate file size (max 50MB for videos, 10MB for images)
-    const maxSize = type === 'video' ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
-    if (file.size > maxSize) {
-      throw new Error(`File too large. Max size: ${maxSize / (1024 * 1024)}MB`);
-    }
-
-    const fileName = `${type}s/${uuidv4()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '')}`;
-    const storageRef = ref(storage, fileName);
-    
-    await uploadBytes(storageRef, file);
-    return await getDownloadURL(storageRef);
   };
 
-  // Add new product
+  useEffect(() => {
+    fetchProducts();
+
+    // Subscribe to realtime changes
+    const channel = supabase
+      .channel('products-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'products' },
+        () => {
+          fetchProducts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+// Upload file to Supabase Storage
+const uploadFile = async (file, bucket = 'products') => {
+  if (!file) return null;
+
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${uuidv4()}.${fileExt}`;
+
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .upload(fileName, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
+
+  if (error) {
+    console.error('Upload error:', error);
+    throw error;
+  }
+
+  // Get public URL
+  const { data: urlData } = supabase.storage
+    .from(bucket)
+    .getPublicUrl(fileName);
+
+  console.log('Uploaded file URL:', urlData.publicUrl);
+  return urlData.publicUrl;
+};
+
+  // Add product
   const addProduct = useCallback(async (productData, imageFile, videoFile) => {
     try {
       setError(null);
-      
-      // Upload media files
+
       let imageUrl = productData.imageUrl || null;
       let videoUrl = productData.videoUrl || null;
 
       if (imageFile) {
-        imageUrl = await uploadMedia(imageFile, 'image');
+        imageUrl = await uploadFile(imageFile, 'products');
       }
       if (videoFile) {
-        videoUrl = await uploadMedia(videoFile, 'video');
+        videoUrl = await uploadFile(videoFile, 'products');
       }
 
-      // Sanitize and validate product data
       const newProduct = {
         name: String(productData.name || '').trim().slice(0, 200),
         description: String(productData.description || '').trim().slice(0, 2000),
         price: Math.max(0, parseFloat(productData.price) || 0),
-        imageUrl,
-        videoUrl,
+        image_url: imageUrl,
+        video_url: videoUrl,
         category: String(productData.category || 'general').trim().slice(0, 100),
-        inStock: productData.inStock !== false,
-        featured: productData.featured === true,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        in_stock: productData.inStock !== false,
+        featured: productData.featured === true
       };
 
-      const docRef = await addDoc(collection(db, 'products'), newProduct);
-      return { id: docRef.id, ...newProduct };
+      const { data, error } = await supabase
+        .from('products')
+        .insert([newProduct])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
     } catch (err) {
       console.error('Add product error:', err);
       setError(err.message);
@@ -125,31 +120,37 @@ export function ProductsProvider({ children }) {
     try {
       setError(null);
 
-      // Upload new media files if provided
       let imageUrl = productData.imageUrl;
       let videoUrl = productData.videoUrl;
 
       if (imageFile) {
-        imageUrl = await uploadMedia(imageFile, 'image');
+        imageUrl = await uploadFile(imageFile, 'products');
       }
       if (videoFile) {
-        videoUrl = await uploadMedia(videoFile, 'video');
+        videoUrl = await uploadFile(videoFile, 'products');
       }
 
       const updateData = {
         name: String(productData.name || '').trim().slice(0, 200),
         description: String(productData.description || '').trim().slice(0, 2000),
         price: Math.max(0, parseFloat(productData.price) || 0),
-        imageUrl,
-        videoUrl,
+        image_url: imageUrl,
+        video_url: videoUrl,
         category: String(productData.category || 'general').trim().slice(0, 100),
-        inStock: productData.inStock !== false,
+        in_stock: productData.inStock !== false,
         featured: productData.featured === true,
-        updatedAt: serverTimestamp()
+        updated_at: new Date().toISOString()
       };
 
-      await updateDoc(doc(db, 'products', productId), updateData);
-      return { id: productId, ...updateData };
+      const { data, error } = await supabase
+        .from('products')
+        .update(updateData)
+        .eq('id', productId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
     } catch (err) {
       console.error('Update product error:', err);
       setError(err.message);
@@ -161,69 +162,73 @@ export function ProductsProvider({ children }) {
   const deleteProduct = useCallback(async (productId) => {
     try {
       setError(null);
-      
-      // Get product to delete associated media
-      const product = products.find(p => p.id === productId);
-      
-      // Delete from Firestore
-      await deleteDoc(doc(db, 'products', productId));
 
-      // Attempt to delete media files (non-blocking)
-      if (product?.imageUrl) {
-        try {
-          const imageRef = ref(storage, product.imageUrl);
-          await deleteObject(imageRef);
-        } catch (e) {
-          console.warn('Could not delete image:', e);
-        }
-      }
-      if (product?.videoUrl) {
-        try {
-          const videoRef = ref(storage, product.videoUrl);
-          await deleteObject(videoRef);
-        } catch (e) {
-          console.warn('Could not delete video:', e);
-        }
-      }
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', productId);
 
+      if (error) throw error;
       return true;
     } catch (err) {
       console.error('Delete product error:', err);
       setError(err.message);
       throw err;
     }
-  }, [products]);
+  }, []);
 
-  // Get single product by ID
+  // Get single product
   const getProduct = useCallback((productId) => {
     return products.find(p => p.id === productId) || null;
   }, [products]);
 
   // Get featured products
   const getFeaturedProducts = useCallback(() => {
-    return products.filter(p => p.featured && p.inStock);
+    return products.filter(p => p.featured && p.in_stock);
   }, [products]);
 
   // Get products by category
   const getProductsByCategory = useCallback((category) => {
-    if (!category || category === 'all') return products.filter(p => p.inStock);
-    return products.filter(p => p.category === category && p.inStock);
+    if (!category || category === 'all') return products.filter(p => p.in_stock);
+    return products.filter(p => p.category === category && p.in_stock);
   }, [products]);
 
   // Get unique categories
   const categories = [...new Set(products.map(p => p.category).filter(Boolean))];
 
+  // Transform product for frontend (snake_case to camelCase)
+  const transformProduct = (p) => ({
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    price: p.price,
+    imageUrl: p.image_url,
+    videoUrl: p.video_url,
+    category: p.category,
+    inStock: p.in_stock,
+    featured: p.featured,
+    createdAt: p.created_at
+  });
+
+  const transformedProducts = products.map(transformProduct);
+
   const value = {
-    products,
+    products: transformedProducts,
     loading,
     error,
     categories,
     addProduct,
     updateProduct,
     deleteProduct,
-    getProduct,
-    getFeaturedProducts,
-    getProductsByCategory
+    getProduct: (id) => {
+      const p = products.find(prod => prod.id === id);
+      return p ? transformProduct(p) : null;
+    },
+    getFeaturedProducts: () => transformedProducts.filter(p => p.featured && p.inStock),
+    getProductsByCategory: (cat) => {
+      if (!cat || cat === 'all') return transformedProducts.filter(p => p.inStock);
+      return transformedProducts.filter(p => p.category === cat && p.inStock);
+    }
   };
 
   return (

@@ -1,17 +1,27 @@
 import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { ShoppingCart, Play, Eye } from 'lucide-react';
+import { ShoppingBag, Play, Plus } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { useBranding } from '../context/BrandingContext';
 
-export default function ProductCard({ product, index = 0 }) {
+export default function ProductCard({ product, viewMode = 'grid' }) {
   const { addItem } = useCart();
+  const { branding } = useBranding();
   const [isHovered, setIsHovered] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
   const [imageError, setImageError] = useState(false);
   const videoRef = useRef(null);
 
+  // Fix: properly check for image and video URLs
+  const hasImage = Boolean(product.image_url && product.image_url.length > 0 && !imageError);
+  const hasVideo = Boolean(product.video_url && product.video_url.length > 0);
+  
+  // Fix: in_stock should default to true if undefined/null
+  const isInStock = product.in_stock !== false;
+
   const handleMouseEnter = () => {
     setIsHovered(true);
-    if (videoRef.current && product.videoUrl) {
+    if (videoRef.current && hasVideo) {
       videoRef.current.play().catch(() => {});
     }
   };
@@ -24,144 +34,177 @@ export default function ProductCard({ product, index = 0 }) {
     }
   };
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(price);
-  };
-
-  const handleAddToCart = (e) => {
+  const handleAddToCart = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    addItem(product);
+    setIsAdding(true);
+    
+    addItem({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      imageUrl: product.image_url,
+      description: product.description,
+    });
+    
+    setTimeout(() => setIsAdding(false), 500);
   };
 
-  return (
-    <motion.article
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: index * 0.1 }}
-      className="product-card group bg-white rounded-2xl overflow-hidden shadow-card"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      {/* Media Container */}
-      <div className="media-container bg-cream-100 relative">
-        {/* Main Image */}
-        {product.imageUrl && !imageError ? (
-          <img
-            src={product.imageUrl}
-            alt={product.name}
-            className="w-full h-full object-cover transition-all duration-500"
-            style={{ opacity: isHovered && product.videoUrl ? 0 : 1 }}
-            loading="lazy"
-            onError={() => setImageError(true)}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-cream-200">
-            <span className="font-display text-4xl text-cream-400">
-              {product.name?.charAt(0) || 'L'}
-            </span>
-          </div>
-        )}
+  const formatPrice = (price) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price);
+  };
 
-        {/* Video Overlay */}
-        {product.videoUrl && (
-          <div 
-            className="video-overlay absolute inset-0 bg-black"
-            style={{ opacity: isHovered ? 1 : 0 }}
-          >
-            <video
-              ref={videoRef}
-              src={product.videoUrl}
-              muted
-              loop
-              playsInline
+  // List view
+  if (viewMode === 'list') {
+    return (
+      <motion.div
+        whileHover={{ y: -2 }}
+        className="flex gap-6 p-4 rounded-2xl transition-shadow hover:shadow-lg bg-white"
+      >
+        <div className="w-32 h-32 rounded-xl overflow-hidden flex-shrink-0 bg-cream-100">
+          {hasImage ? (
+            <img 
+              src={product.image_url} 
+              alt={product.name} 
               className="w-full h-full object-cover"
+              onError={() => setImageError(true)}
             />
-          </div>
-        )}
-
-        {/* Hover Overlay */}
-        <div 
-          className={`absolute inset-0 bg-gradient-to-t from-coffee-900/60 via-transparent to-transparent flex items-end justify-center pb-6 transition-opacity duration-300 ${
-            isHovered ? 'opacity-100' : 'opacity-0'
-          }`}
-        >
-          <motion.button
-            initial={{ y: 20, opacity: 0 }}
-            animate={isHovered ? { y: 0, opacity: 1 } : { y: 20, opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            onClick={handleAddToCart}
-            className="flex items-center gap-2 px-6 py-2.5 bg-white/95 text-coffee-900 font-medium text-sm rounded-full shadow-lg hover:bg-gold-400 transition-colors"
-          >
-            <ShoppingCart size={16} />
-            Add to Cart
-          </motion.button>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <span className="font-display text-3xl text-cream-400">
+                {product.name?.charAt(0)}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Video indicator */}
-        {product.videoUrl && (
-          <div className="absolute top-3 right-3 p-2 bg-coffee-900/70 rounded-full">
-            <Play size={14} className="text-white fill-white" />
+        <div className="flex-1 flex flex-col justify-between">
+          <div>
+            <span className="text-xs font-medium uppercase tracking-wider text-gold-600">
+              {product.category || 'General'}
+            </span>
+            <h3 className="font-display text-lg font-semibold mt-1 text-coffee-900">
+              {product.name}
+            </h3>
+            <p className="text-sm mt-1 line-clamp-2 text-coffee-600">
+              {product.description}
+            </p>
           </div>
-        )}
+          <div className="flex items-center justify-between mt-3">
+            <span className="text-xl font-bold text-coffee-900">
+              {formatPrice(product.price)}
+            </span>
+            <button
+              onClick={handleAddToCart}
+              disabled={!isInStock || isAdding}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-colors disabled:opacity-50 bg-gold-500 text-coffee-900 hover:bg-gold-600"
+            >
+              <ShoppingBag size={16} />
+              {isInStock ? 'Add to Cart' : 'Out of Stock'}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
 
-        {/* Featured badge */}
+  // Grid view
+  return (
+    <motion.div
+      whileHover={{ y: -4 }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      className="group rounded-2xl overflow-hidden transition-shadow hover:shadow-xl bg-white"
+    >
+      {/* Image Container */}
+      <div className="relative aspect-square overflow-hidden bg-cream-100">
+        {/* Featured Badge */}
         {product.featured && (
-          <div className="absolute top-3 left-3 px-3 py-1 bg-gradient-to-r from-gold-400 to-gold-500 text-coffee-900 text-xs font-semibold rounded-full">
+          <div className="absolute top-3 left-3 z-10 px-3 py-1 rounded-full text-xs font-semibold bg-gold-500 text-coffee-900">
             Featured
           </div>
         )}
 
-        {/* Out of stock overlay */}
-        {!product.inStock && (
-          <div className="absolute inset-0 bg-cream-50/80 flex items-center justify-center">
-            <span className="px-4 py-2 bg-coffee-900 text-cream-100 text-sm font-medium rounded-lg">
-              Out of Stock
+        {/* Video Indicator */}
+        {hasVideo && (
+          <div className="absolute top-3 right-3 z-10 p-2 rounded-full bg-coffee-900">
+            <Play size={14} className="text-white" fill="white" />
+          </div>
+        )}
+
+        {/* Image or Fallback */}
+        {hasImage ? (
+          <img
+            src={product.image_url}
+            alt={product.name}
+            className={`w-full h-full object-cover transition-opacity duration-300 ${
+              isHovered && hasVideo ? 'opacity-0' : 'opacity-100'
+            }`}
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <span className="font-display text-6xl text-cream-400">
+              {product.name?.charAt(0)}
             </span>
           </div>
         )}
-      </div>
 
-      {/* Product Info */}
-      <div className="p-5">
-        {/* Category */}
-        <span className="text-xs font-medium text-gold-600 uppercase tracking-wider">
-          {product.category}
-        </span>
+        {/* Video */}
+        {hasVideo && (
+          <video
+            ref={videoRef}
+            src={product.video_url}
+            muted
+            loop
+            playsInline
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+              isHovered ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+        )}
 
-        {/* Name */}
-        <h3 className="mt-1.5 font-display text-xl font-semibold text-coffee-900 line-clamp-1 group-hover:text-gold-700 transition-colors">
-          {product.name}
-        </h3>
-
-        {/* Description */}
-        <p className="mt-2 text-sm text-coffee-600 line-clamp-2 min-h-[2.5rem]">
-          {product.description}
-        </p>
-
-        {/* Price and Action */}
-        <div className="mt-4 flex items-center justify-between">
-          <span className="font-display text-2xl font-bold text-coffee-900">
-            {formatPrice(product.price)}
-          </span>
-          
+        {/* Quick Add Button */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 20 }}
+          className="absolute inset-x-4 bottom-4 z-10"
+        >
           <button
             onClick={handleAddToCart}
-            disabled={!product.inStock}
-            className={`p-3 rounded-xl transition-all ${
-              product.inStock
-                ? 'bg-cream-200 hover:bg-gold-400 hover:shadow-gold text-coffee-800'
-                : 'bg-cream-100 text-cream-400 cursor-not-allowed'
-            }`}
-            aria-label="Add to cart"
+            disabled={!isInStock || isAdding}
+            className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 bg-white text-coffee-900 hover:bg-cream-100"
           >
-            <ShoppingCart size={18} />
+            <ShoppingBag size={18} />
+            {isAdding ? 'Added!' : isInStock ? 'Add to Cart' : 'Out of Stock'}
+          </button>
+        </motion.div>
+      </div>
+
+      {/* Content */}
+      <div className="p-4">
+        <span className="text-xs font-medium uppercase tracking-wider text-gold-600">
+          {product.category || 'General'}
+        </span>
+        <h3 className="font-display text-lg font-semibold mt-1 line-clamp-1 text-coffee-900">
+          {product.name}
+        </h3>
+        <p className="text-sm mt-1 line-clamp-2 min-h-[2.5rem] text-coffee-600">
+          {product.description}
+        </p>
+        <div className="flex items-center justify-between mt-4">
+          <span className="text-xl font-bold text-coffee-900">
+            {formatPrice(product.price)}
+          </span>
+          <button
+            onClick={handleAddToCart}
+            disabled={!isInStock || isAdding}
+            className="p-2 rounded-xl transition-colors disabled:opacity-50 bg-cream-100 text-coffee-900 hover:bg-cream-200"
+          >
+            <Plus size={20} />
           </button>
         </div>
       </div>
-    </motion.article>
+    </motion.div>
   );
 }

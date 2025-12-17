@@ -1,70 +1,207 @@
 import { motion } from 'framer-motion';
-import { Award, Heart, Shield, Sparkles } from 'lucide-react';
+import { Heart, Award, Users, Globe } from 'lucide-react';
+import { useBranding } from '../context/BrandingContext';
 
 export default function AboutPage() {
+  const { branding } = useBranding();
+
+  const values = [
+    {
+      icon: Heart,
+      title: 'Passion for Quality',
+      description: 'Every product we offer is carefully selected to meet our exacting standards.'
+    },
+    {
+      icon: Award,
+      title: 'Excellence in Design',
+      description: 'We believe beautiful design enhances the everyday experience.'
+    },
+    {
+      icon: Users,
+      title: 'Customer First',
+      description: 'Your satisfaction drives everything we do.'
+    },
+    {
+      icon: Globe,
+      title: 'Sustainable Practices',
+      description: 'We\'re committed to responsible sourcing and packaging.'
+    }
+  ];
+
   return (
-    <main className="min-h-screen pt-24 pb-16">
+    <main className="min-h-screen pt-24 pb-16" style={{ backgroundColor: branding.colors.background }}>
       {/* Hero */}
-      <section className="py-20 bg-coffee-900 text-cream-100">
-        <div className="max-w-4xl mx-auto px-4 text-center">
+      <section className="py-16 text-center">
+        <div className="max-w-4xl mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <span className="text-gold-400 font-medium text-sm uppercase tracking-wider">
-              Our Story
-            </span>
-            <h1 className="mt-4 font-display text-4xl sm:text-5xl font-bold">
-              Crafting Excellence, <span className="text-gold-400">Defining Luxury</span>
+            <h1 
+              className="font-display text-4xl md:text-5xl font-bold mb-6"
+              style={{ color: branding.colors.secondary }}
+            >
+              {branding.content.aboutTitle}
             </h1>
-            <p className="mt-6 text-lg text-cream-300 max-w-2xl mx-auto">
-              LUXE was founded with a singular vision: to bring exceptional quality and timeless elegance to discerning customers worldwide.
+            <p 
+              className="text-lg leading-relaxed"
+              style={{ color: branding.colors.textLight }}
+            >
+              {branding.content.aboutText}
             </p>
           </motion.div>
         </div>
       </section>
 
-      {/* Values */}
-      <section className="py-20 bg-white">
+      {/* Story Section */}
+      <section className="py-16" style={{ backgroundColor: branding.colors.white }}>
         <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="font-display text-3xl font-bold text-coffee-900">Our Values</h2>
-            <div className="mt-4 w-24 h-1 bg-gradient-to-r from-gold-400 to-gold-600 mx-auto rounded-full" />
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+            >
+              <div 
+                className="aspect-square rounded-2xl"
+                style={{ backgroundColor: branding.colors.background }}
+              >
+                <div className="w-full h-full flex items-center justify-center">
+                  <span 
+                    className="font-display text-8xl"
+                    style={{ color: branding.colors.primary }}
+                  >
+                    {branding.logoText}
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+            >
+              <span 
+                className="text-sm font-medium uppercase tracking-wider"
+                style={{ color: branding.colors.primary }}
+              >
+                Our Story
+              </span>
+              <h2 
+                className="font-display text-3xl font-bold mt-2 mb-6"
+                style={{ color: branding.colors.secondary }}
+              >
+                Built on a Foundation of Excellence
+              </h2>
+              <div 
+                className="space-y-4"
+                style={{ color: branding.colors.textLight }}
+              >
+                <p>
+                  {branding.brandName} was founded with a simple mission: to bring premium quality products 
+                  to discerning customers who appreciate the finer things in life.
+                </p>
+                <p>
+                  We believe that every purchase should bring joy, not just at the moment of unboxing, 
+                  but for years to come. That's why we meticulously curate our collection, partnering 
+                  only with artisans and manufacturers who share our commitment to excellence.
+                </p>
+                <p>
+                  Today, we're proud to serve customers around the world, delivering not just products, 
+                  but experiences that elevate everyday life.
+                </p>
+              </div>
+            </motion.div>
           </div>
+        </div>
+      </section>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {[
-              { icon: Award, title: 'Quality', desc: 'Only the finest materials and craftsmanship' },
-              { icon: Heart, title: 'Passion', desc: 'Love for excellence in every detail' },
-              { icon: Shield, title: 'Trust', desc: 'Secure shopping and authentic products' },
-              { icon: Sparkles, title: 'Innovation', desc: 'Constantly evolving to serve you better' }
-            ].map((item, i) => (
+      {/* Values */}
+      <section className="py-16" style={{ backgroundColor: branding.colors.background }}>
+        <div className="max-w-6xl mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <h2 
+              className="font-display text-3xl font-bold mb-4"
+              style={{ color: branding.colors.secondary }}
+            >
+              Our Values
+            </h2>
+            <p style={{ color: branding.colors.textLight }}>
+              The principles that guide everything we do
+            </p>
+          </motion.div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {values.map((value, index) => (
               <motion.div
-                key={i}
+                key={value.title}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="text-center p-6"
+                className="p-6 rounded-2xl text-center"
+                style={{ backgroundColor: branding.colors.white }}
               >
-                <div className="w-16 h-16 mx-auto bg-gold-100 rounded-2xl flex items-center justify-center mb-4">
-                  <item.icon size={28} className="text-gold-600" />
+                <div 
+                  className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-4"
+                  style={{ backgroundColor: `${branding.colors.primary}20` }}
+                >
+                  <value.icon size={28} style={{ color: branding.colors.primary }} />
                 </div>
-                <h3 className="font-display text-xl font-semibold text-coffee-900">{item.title}</h3>
-                <p className="mt-2 text-coffee-600">{item.desc}</p>
+                <h3 
+                  className="font-display font-semibold mb-2"
+                  style={{ color: branding.colors.secondary }}
+                >
+                  {value.title}
+                </h3>
+                <p 
+                  className="text-sm"
+                  style={{ color: branding.colors.textLight }}
+                >
+                  {value.description}
+                </p>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Mission */}
-      <section className="py-20 bg-cream-100">
+      {/* CTA */}
+      <section 
+        className="py-16"
+        style={{ backgroundColor: branding.colors.secondary }}
+      >
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <h2 className="font-display text-3xl font-bold text-coffee-900">Our Mission</h2>
-          <p className="mt-6 text-lg text-coffee-700 leading-relaxed">
-            We believe that luxury should be accessible without compromise. Every product in our collection is carefully curated to meet the highest standards of quality, design, and sustainability. Our commitment to excellence extends beyond our products to every interaction you have with us.
-          </p>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <h2 
+              className="font-display text-3xl font-bold mb-6"
+              style={{ color: branding.colors.background }}
+            >
+              Ready to Experience the Difference?
+            </h2>
+            <p 
+              className="mb-8"
+              style={{ color: branding.colors.backgroundAlt }}
+            >
+              Browse our curated collection and discover products that inspire.
+            </p>
+            <a
+              href="/shop"
+              className="inline-block px-8 py-4 rounded-xl font-semibold transition-colors"
+              style={{ backgroundColor: branding.colors.primary, color: branding.colors.secondary }}
+            >
+              Explore Our Collection
+            </a>
+          </motion.div>
         </div>
       </section>
     </main>

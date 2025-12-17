@@ -1,5 +1,12 @@
 {
+  "version": 2,
   "rewrites": [
-    { "source": "/(.*)", "destination": "/" }
-  ]
+    { "source": "/((?!api/).*)", "destination": "/" }
+  ],
+  "functions": {
+    "api/*": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  }
 }

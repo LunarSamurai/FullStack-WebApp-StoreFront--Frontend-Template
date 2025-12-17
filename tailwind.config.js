@@ -47,28 +47,8 @@ export default {
       },
       boxShadow: {
         'gold': '0 8px 32px -8px rgba(212, 168, 84, 0.4)',
-        'gold-lg': '0 16px 48px -12px rgba(212, 168, 84, 0.5)',
         'card': '0 4px 24px -4px rgba(42, 33, 24, 0.08)',
         'card-hover': '0 12px 40px -8px rgba(42, 33, 24, 0.15)'
-      },
-      animation: {
-        'shimmer': 'shimmer 2s infinite',
-        'float': 'float 6s ease-in-out infinite',
-        'glow': 'glow 2s ease-in-out infinite alternate'
-      },
-      keyframes: {
-        shimmer: {
-          '0%': { backgroundPosition: '-200% 0' },
-          '100%': { backgroundPosition: '200% 0' }
-        },
-        float: {
-          '0%, 100%': { transform: 'translateY(0px)' },
-          '50%': { transform: 'translateY(-10px)' }
-        },
-        glow: {
-          '0%': { boxShadow: '0 0 20px rgba(212, 168, 84, 0.3)' },
-          '100%': { boxShadow: '0 0 40px rgba(212, 168, 84, 0.6)' }
-        }
       }
     },
   },
