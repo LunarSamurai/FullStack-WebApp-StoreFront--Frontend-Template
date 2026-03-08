@@ -1,5 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
-
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -9,6 +7,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
+    const { createClient } = await import('@supabase/supabase-js');
     const { orderId, email, reason, details } = req.body;
 
     if (!orderId || !email || !reason) {

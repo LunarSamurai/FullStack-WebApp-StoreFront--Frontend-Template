@@ -1,19 +1,3 @@
-export const config = {
-  api: { bodyParser: false },
-};
-
-function getRawBody(req) {
-  if (Buffer.isBuffer(req.body)) return Promise.resolve(req.body);
-  if (typeof req.body === 'string') return Promise.resolve(Buffer.from(req.body));
-
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    req.on('data', (chunk) => chunks.push(chunk));
-    req.on('end', () => resolve(Buffer.concat(chunks)));
-    req.on('error', reject);
-  });
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -31,8 +15,29 @@ export default async function handler(req, res) {
     console.log('RESEND_API_KEY set:', !!process.env.RESEND_API_KEY);
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    const rawBody = await getRawBody(req);
     const sig = req.headers['stripe-signature'];
+
+    // Get raw body for signature verification
+    // Vercel's body parser may have already parsed req.body as JSON object
+    let rawBody;
+    if (Buffer.isBuffer(req.body)) {
+      rawBody = req.body;
+    } else if (typeof req.body === 'string') {
+      rawBody = Buffer.from(req.body);
+    } else if (req.body && typeof req.body === 'object') {
+      // Body parser already parsed it - reconstruct the raw JSON
+      rawBody = Buffer.from(JSON.stringify(req.body));
+    } else {
+      // Try reading from stream
+      rawBody = await new Promise((resolve, reject) => {
+        const chunks = [];
+        req.on('data', (chunk) => chunks.push(chunk));
+        req.on('end', () => resolve(Buffer.concat(chunks)));
+        req.on('error', reject);
+      });
+    }
+
+    console.log('Raw body type:', typeof req.body, 'length:', rawBody.length);
 
     let event;
     try {
