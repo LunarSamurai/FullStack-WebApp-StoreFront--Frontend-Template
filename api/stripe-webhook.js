@@ -7,6 +7,10 @@ export const config = {
 };
 
 function getRawBody(req) {
+  // Vercel may already provide body as Buffer when bodyParser is false
+  if (Buffer.isBuffer(req.body)) return Promise.resolve(req.body);
+  if (typeof req.body === 'string') return Promise.resolve(Buffer.from(req.body));
+
   return new Promise((resolve, reject) => {
     const chunks = [];
     req.on('data', (chunk) => chunks.push(chunk));
@@ -20,6 +24,13 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Log for debugging - check Vercel function logs
+  console.log('Webhook received, checking env vars...');
+  console.log('STRIPE_SECRET_KEY set:', !!process.env.STRIPE_SECRET_KEY);
+  console.log('STRIPE_WEBHOOK_SECRET set:', !!process.env.STRIPE_WEBHOOK_SECRET);
+  console.log('SUPABASE_SERVICE_ROLE_KEY set:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+  console.log('RESEND_API_KEY set:', !!process.env.RESEND_API_KEY);
+
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   const rawBody = await getRawBody(req);
   const sig = req.headers['stripe-signature'];
@@ -32,9 +43,12 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `Webhook Error: ${err.message}` });
   }
 
+  console.log('Webhook event type:', event.type);
+
   if (event.type === 'checkout.session.completed') {
     try {
       await handleCheckoutCompleted(stripe, event.data.object);
+      console.log('Checkout completed handler finished successfully');
     } catch (err) {
       console.error('Error handling checkout.session.completed:', err);
       // Still return 200 so Stripe doesn't retry
