@@ -32,7 +32,7 @@ export default function SuccessPage() {
         .from('orders')
         .select('*')
         .eq('stripe_session_id', sessionId)
-        .single();
+        .maybeSingle();
 
       if (data) {
         setOrder(data);
