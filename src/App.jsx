@@ -16,6 +16,9 @@ import RegisterPage from './pages/RegisterPage';
 import AccountPage from './pages/AccountPage';
 import SuccessPage from './pages/SuccessPage';
 import CancelOrderPage from './pages/CancelOrderPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import AuthCallbackPage from './pages/AuthCallbackPage';
 
 function App() {
   return (
@@ -37,6 +40,9 @@ function App() {
                     <Route path="/account" element={<AccountPage />} />
                     <Route path="/success" element={<SuccessPage />} />
                     <Route path="/cancel-order" element={<CancelOrderPage />} />
+                    <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
+                    <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+                    <Route path="/auth/callback" element={<AuthCallbackPage />} />
                   </Routes>
                 </div>
                 <Footer />

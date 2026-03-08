@@ -1,6 +1,13 @@
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+export const config = {
+  runtime: 'edge',
+};
+
+export default async function handler(request) {
+  if (request.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   try {
@@ -9,42 +16,24 @@ export default async function handler(req, res) {
     const { Resend } = await import('resend');
 
     console.log('Webhook received');
-    console.log('STRIPE_SECRET_KEY set:', !!process.env.STRIPE_SECRET_KEY);
-    console.log('STRIPE_WEBHOOK_SECRET set:', !!process.env.STRIPE_WEBHOOK_SECRET);
-    console.log('SUPABASE_SERVICE_ROLE_KEY set:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-    console.log('RESEND_API_KEY set:', !!process.env.RESEND_API_KEY);
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    const sig = req.headers['stripe-signature'];
-
-    // Get raw body for signature verification
-    // Vercel's body parser may have already parsed req.body as JSON object
-    let rawBody;
-    if (Buffer.isBuffer(req.body)) {
-      rawBody = req.body;
-    } else if (typeof req.body === 'string') {
-      rawBody = Buffer.from(req.body);
-    } else if (req.body && typeof req.body === 'object') {
-      // Body parser already parsed it - reconstruct the raw JSON
-      rawBody = Buffer.from(JSON.stringify(req.body));
-    } else {
-      // Try reading from stream
-      rawBody = await new Promise((resolve, reject) => {
-        const chunks = [];
-        req.on('data', (chunk) => chunks.push(chunk));
-        req.on('end', () => resolve(Buffer.concat(chunks)));
-        req.on('error', reject);
-      });
-    }
-
-    console.log('Raw body type:', typeof req.body, 'length:', rawBody.length);
+    const rawBody = await request.text();
+    const sig = request.headers.get('stripe-signature');
 
     let event;
     try {
-      event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
+      event = await stripe.webhooks.constructEventAsync(
+        rawBody,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
     } catch (err) {
       console.error('Webhook signature verification failed:', err.message);
-      return res.status(400).json({ error: `Webhook Error: ${err.message}` });
+      return new Response(JSON.stringify({ error: `Webhook Error: ${err.message}` }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     console.log('Webhook event type:', event.type);
@@ -54,10 +43,16 @@ export default async function handler(req, res) {
       console.log('Checkout completed handler finished successfully');
     }
 
-    return res.status(200).json({ received: true });
+    return new Response(JSON.stringify({ received: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (err) {
     console.error('Webhook handler error:', err);
-    return res.status(500).json({ error: err.message });
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }
 
