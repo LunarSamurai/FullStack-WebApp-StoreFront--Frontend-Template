@@ -65,8 +65,8 @@ export default function ProductCard({ product, index = 0 }) {
         )}
 
         {product.videoUrl && (
-          <div 
-            className="absolute inset-0 bg-black"
+          <div
+            className="absolute inset-0 transition-opacity duration-300"
             style={{ opacity: isHovered ? 1 : 0 }}
           >
             <video
@@ -75,6 +75,7 @@ export default function ProductCard({ product, index = 0 }) {
               muted
               loop
               playsInline
+              preload="metadata"
               className="w-full h-full object-cover"
             />
           </div>

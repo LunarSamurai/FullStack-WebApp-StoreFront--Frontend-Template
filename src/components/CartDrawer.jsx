@@ -25,7 +25,8 @@ export default function CartDrawer() {
     setCheckoutError(null);
 
     try {
-      const backendUrl = import.meta.env.VITE_STRIPE_BACKEND_URL || 'http://localhost:3001';
+      const backendUrl = import.meta.env.VITE_STRIPE_BACKEND_URL
+        || (import.meta.env.DEV ? 'http://localhost:3001' : '');
       const apiUrl = `${backendUrl}/api/create-checkout-session`;
 
       const response = await fetch(apiUrl, {

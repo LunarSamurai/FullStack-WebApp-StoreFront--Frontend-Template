@@ -31,7 +31,8 @@ export default function SalesDashboard() {
   const fetchSalesData = async () => {
     setLoading(true);
     try {
-      const backendUrl = import.meta.env.VITE_STRIPE_BACKEND_URL || 'http://localhost:3001';
+      const backendUrl = import.meta.env.VITE_STRIPE_BACKEND_URL
+        || (import.meta.env.DEV ? 'http://localhost:3001' : '');
       const apiUrl = `${backendUrl}/api/sales-analytics`;
       
       const response = await fetch(`${apiUrl}?period=${timePeriod}`);
