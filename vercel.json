@@ -4,6 +4,10 @@
     { "source": "/((?!api/).*)", "destination": "/" }
   ],
   "functions": {
+    "api/stripe-webhook.js": {
+      "memory": 1024,
+      "maxDuration": 30
+    },
     "api/*": {
       "memory": 1024,
       "maxDuration": 10

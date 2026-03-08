@@ -15,6 +15,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import AccountPage from './pages/AccountPage';
 import SuccessPage from './pages/SuccessPage';
+import CancelOrderPage from './pages/CancelOrderPage';
 
 function App() {
   return (
@@ -35,6 +36,7 @@ function App() {
                     <Route path="/auth/register" element={<RegisterPage />} />
                     <Route path="/account" element={<AccountPage />} />
                     <Route path="/success" element={<SuccessPage />} />
+                    <Route path="/cancel-order" element={<CancelOrderPage />} />
                   </Routes>
                 </div>
                 <Footer />

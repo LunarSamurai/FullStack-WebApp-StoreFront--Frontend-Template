@@ -238,13 +238,157 @@ CREATE TRIGGER set_branding_updated_at
 
 
 -- ============================================
--- 6. INDEXES (performance)
+-- 6. ORDERS TABLE
 -- ============================================
-CREATE INDEX IF NOT EXISTS idx_products_category   ON public.products (category);
-CREATE INDEX IF NOT EXISTS idx_products_featured   ON public.products (featured) WHERE featured = true;
-CREATE INDEX IF NOT EXISTS idx_products_in_stock   ON public.products (in_stock) WHERE in_stock = true;
-CREATE INDEX IF NOT EXISTS idx_products_created_at ON public.products (created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_admins_email        ON public.admins (email);
+
+CREATE TABLE IF NOT EXISTS public.orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  stripe_session_id TEXT UNIQUE NOT NULL,
+  stripe_payment_intent_id TEXT,
+  customer_email TEXT NOT NULL,
+  customer_name TEXT,
+  billing_address JSONB,
+  shipping_address JSONB,
+  subtotal NUMERIC NOT NULL DEFAULT 0,
+  tax NUMERIC NOT NULL DEFAULT 0,
+  shipping NUMERIC NOT NULL DEFAULT 0,
+  total NUMERIC NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL DEFAULT 'usd',
+  status TEXT NOT NULL DEFAULT 'completed'
+    CHECK (status IN ('completed', 'cancellation_requested', 'cancelled', 'refunded')),
+  cancellation_reason TEXT,
+  cancellation_requested_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ============================================
+-- 7. ORDER ITEMS TABLE
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS public.order_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+  product_name TEXT NOT NULL,
+  product_id UUID,
+  quantity INTEGER NOT NULL DEFAULT 1,
+  unit_price NUMERIC NOT NULL,
+  total_price NUMERIC NOT NULL,
+  image_url TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ============================================
+-- 8. CANCELLATIONS TABLE
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS public.cancellations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+  customer_email TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'reviewed', 'approved', 'denied')),
+  admin_notes TEXT,
+  reviewed_by TEXT,
+  reviewed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+
+-- ============================================
+-- 9. RLS FOR ORDERS, ORDER_ITEMS, CANCELLATIONS
+-- ============================================
+
+-- --- ORDERS ---
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "orders_public_read"  ON public.orders;
+DROP POLICY IF EXISTS "orders_anon_insert"  ON public.orders;
+DROP POLICY IF EXISTS "orders_auth_update"  ON public.orders;
+
+CREATE POLICY "orders_public_read"
+  ON public.orders FOR SELECT
+  TO anon, authenticated
+  USING (true);
+
+CREATE POLICY "orders_anon_insert"
+  ON public.orders FOR INSERT
+  TO anon, authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "orders_auth_update"
+  ON public.orders FOR UPDATE
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+-- --- ORDER ITEMS ---
+ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "order_items_public_read"  ON public.order_items;
+DROP POLICY IF EXISTS "order_items_anon_insert"  ON public.order_items;
+
+CREATE POLICY "order_items_public_read"
+  ON public.order_items FOR SELECT
+  TO anon, authenticated
+  USING (true);
+
+CREATE POLICY "order_items_anon_insert"
+  ON public.order_items FOR INSERT
+  TO anon, authenticated
+  WITH CHECK (true);
+
+-- --- CANCELLATIONS ---
+ALTER TABLE public.cancellations ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "cancellations_public_insert" ON public.cancellations;
+DROP POLICY IF EXISTS "cancellations_auth_read"     ON public.cancellations;
+DROP POLICY IF EXISTS "cancellations_auth_update"   ON public.cancellations;
+
+CREATE POLICY "cancellations_public_insert"
+  ON public.cancellations FOR INSERT
+  TO anon, authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "cancellations_auth_read"
+  ON public.cancellations FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "cancellations_auth_update"
+  ON public.cancellations FOR UPDATE
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+
+-- ============================================
+-- 10. INDEXES (performance)
+-- ============================================
+CREATE INDEX IF NOT EXISTS idx_products_category     ON public.products (category);
+CREATE INDEX IF NOT EXISTS idx_products_featured     ON public.products (featured) WHERE featured = true;
+CREATE INDEX IF NOT EXISTS idx_products_in_stock     ON public.products (in_stock) WHERE in_stock = true;
+CREATE INDEX IF NOT EXISTS idx_products_created_at   ON public.products (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_admins_email          ON public.admins (email);
+CREATE INDEX IF NOT EXISTS idx_orders_stripe_session ON public.orders (stripe_session_id);
+CREATE INDEX IF NOT EXISTS idx_orders_email          ON public.orders (customer_email);
+CREATE INDEX IF NOT EXISTS idx_orders_status         ON public.orders (status);
+CREATE INDEX IF NOT EXISTS idx_orders_created_at     ON public.orders (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_order_items_order_id  ON public.order_items (order_id);
+CREATE INDEX IF NOT EXISTS idx_cancellations_order   ON public.cancellations (order_id);
+CREATE INDEX IF NOT EXISTS idx_cancellations_status  ON public.cancellations (status);
+
+
+-- ============================================
+-- 11. TRIGGERS FOR NEW TABLES
+-- ============================================
+
+DROP TRIGGER IF EXISTS set_orders_updated_at ON public.orders;
+CREATE TRIGGER set_orders_updated_at
+  BEFORE UPDATE ON public.orders
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_updated_at();
 
 
 -- ============================================
@@ -255,5 +399,11 @@ CREATE INDEX IF NOT EXISTS idx_admins_email        ON public.admins (email);
 --   VITE_SUPABASE_ANON_KEY=your-anon-key
 --   VITE_ADMIN_EMAIL=your-email@example.com
 --   VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
---   VITE_STRIPE_BACKEND_URL=https://your-stripe-backend.vercel.app
+--   STRIPE_SECRET_KEY=sk_test_...
+--   STRIPE_WEBHOOK_SECRET=whsec_...
+--   SUPABASE_SERVICE_ROLE_KEY=eyJ...
+--   SUPABASE_URL=https://your-project.supabase.co
+--   RESEND_API_KEY=re_...
+--   RESEND_FROM_EMAIL=LUXE Store <orders@yourdomain.com>
+--   SITE_URL=https://your-site.vercel.app
 -- ============================================

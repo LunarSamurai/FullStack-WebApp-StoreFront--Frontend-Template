@@ -11,6 +11,7 @@ import { useProducts } from '../context/ProductsContext';
 import { supabase } from '../config/supabase';
 import SalesDashboard from '../components/SalesDashboard';
 import BrandingEditor from '../components/BrandingEditor';
+import CancellationsDashboard from '../components/CancellationsDashboard';
 
 export default function AdminPage() {
   const { user, isAdmin, verifyEscalationMFA, enrollMFA, getEscalationFactor } = useAuth();
@@ -338,6 +339,7 @@ export default function AdminPage() {
   const tabs = [
     { id: 'products', label: 'Products', icon: Package },
     { id: 'sales', label: 'Sales', icon: TrendingUp },
+    { id: 'cancellations', label: 'Cancellations', icon: AlertTriangle },
     { id: 'admins', label: 'Admins', icon: Users },
     { id: 'branding', label: 'Branding', icon: Palette },
   ];
@@ -517,6 +519,9 @@ export default function AdminPage() {
 
         {/* Sales Tab */}
         {activeTab === 'sales' && <SalesDashboard />}
+
+        {/* Cancellations Tab */}
+        {activeTab === 'cancellations' && <CancellationsDashboard />}
 
         {/* Admins Tab */}
         {activeTab === 'admins' && (
