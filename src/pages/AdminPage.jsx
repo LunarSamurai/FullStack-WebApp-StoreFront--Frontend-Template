@@ -264,7 +264,7 @@ export default function AdminPage() {
       refreshProducts();
     } catch (err) {
       console.error('Error saving product:', err);
-      alert('Failed to save product');
+      alert(`Failed to save product: ${err.message || err}`);
     } finally {
       setLoading(false);
     }

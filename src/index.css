@@ -150,6 +150,13 @@ body {
   transition: transform 0.5s ease;
 }
 
+.product-card .media-container video::-webkit-media-controls,
+.product-card .media-container video::-webkit-media-controls-enclosure,
+.product-card .media-container video::-webkit-media-controls-panel {
+  display: none !important;
+  -webkit-appearance: none !important;
+}
+
 .product-card:hover .media-container img {
   transform: scale(1.05);
 }

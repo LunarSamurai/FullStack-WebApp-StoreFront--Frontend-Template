@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { ShoppingCart, Play } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
 export default function ProductCard({ product, index = 0 }) {
@@ -75,8 +75,10 @@ export default function ProductCard({ product, index = 0 }) {
               muted
               loop
               playsInline
+              disablePictureInPicture
+              controlsList="nodownload nofullscreen noremoteplayback"
               preload="metadata"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover pointer-events-none"
             />
           </div>
         )}
@@ -97,12 +99,6 @@ export default function ProductCard({ product, index = 0 }) {
             Add to Cart
           </motion.button>
         </div>
-
-        {product.videoUrl && (
-          <div className="absolute top-3 right-3 p-2 bg-coffee-900/70 rounded-full">
-            <Play size={14} className="text-white fill-white" />
-          </div>
-        )}
 
         {product.featured && (
           <div className="absolute top-3 left-3 px-3 py-1 bg-gradient-to-r from-gold-400 to-gold-500 text-coffee-900 text-xs font-semibold rounded-full">
