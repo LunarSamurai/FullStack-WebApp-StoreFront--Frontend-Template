@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background-color:#f8f5f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8f5f0;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;">
+        <tr>
+          <td style="background-color:#2c1810;padding:32px;text-align:center;">
+            <h1 style="color:#d4a853;margin:0;font-size:24px;letter-spacing:2px;">LUXE STORE</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:40px 32px 16px;text-align:center;">
+            <div style="width:64px;height:64px;margin:0 auto 16px;background-color:#f0fdf4;border-radius:50%;line-height:64px;font-size:28px;">&#10003;</div>
+            <h2 style="color:#2c1810;margin:0;font-size:22px;">Verify Your Email</h2>
+            <p style="color:#6b5c4f;margin:12px 0 0;font-size:15px;line-height:1.6;">
+              Welcome to LUXE Store! Please confirm your email address to complete your registration and start shopping.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px 32px;text-align:center;">
+            <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
+              <tr>
+                <td style="background-color:#d4a853;border-radius:8px;">
+                  <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 40px;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;letter-spacing:0.5px;">Verify Email</a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 32px 32px;text-align:center;">
+            <p style="color:#999;font-size:13px;margin:0;line-height:1.5;">
+              If you didn't create an account with LUXE Store, you can safely ignore this email.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 32px 24px;text-align:center;border-top:1px solid #eee;">
+            <p style="color:#bbb;font-size:12px;margin:0;line-height:1.5;">
+              Button not working? Copy and paste this link into your browser:<br>
+              <a href="{{ .ConfirmationURL }}" style="color:#d4a853;word-break:break-all;">{{ .ConfirmationURL }}</a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
